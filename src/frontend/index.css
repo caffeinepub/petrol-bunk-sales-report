@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Fonts ─────────────────────────────────────────────── */
+@font-face {
+  font-family: "Sora";
+  src: url("/assets/fonts/Sora.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/assets/fonts/GeistMono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── Design Tokens ─────────────────────────────────────── */
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Core palette — slate-dark industrial */
+    --background: 0.96 0.006 250;
+    --foreground: 0.18 0.02 250;
+
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.02 250;
+
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.02 250;
+
+    /* Primary — Sky Blue */
+    --primary: 0.62 0.18 230;
+    --primary-foreground: 0.97 0.006 250;
+
+    /* Secondary — light slate */
+    --secondary: 0.93 0.012 255;
+    --secondary-foreground: 0.25 0.045 255;
+
+    --muted: 0.93 0.01 255;
+    --muted-foreground: 0.52 0.025 255;
+
+    --accent: 0.91 0.015 255;
+    --accent-foreground: 0.25 0.045 255;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    --border: 0.88 0.015 255;
+    --input: 0.88 0.015 255;
+    --ring: 0.55 0.12 255;
+
+    /* MS Fuel — teal/emerald */
+    --ms-primary: 0.55 0.15 175;
+    --ms-secondary: 0.88 0.06 175;
+    --ms-text: 0.35 0.1 175;
+    --ms-bg: 0.97 0.025 175;
+    --ms-border: 0.78 0.1 175;
+
+    /* HSD Fuel — BPCL Blue */
+    --hsd-primary: 0.38 0.18 255;
+    --hsd-secondary: 0.87 0.06 255;
+    --hsd-text: 0.28 0.14 255;
+    --hsd-bg: 0.97 0.025 255;
+    --hsd-border: 0.78 0.1 255;
+
+    /* Net highlight — emerald green */
+    --net-primary: 0.52 0.18 148;
+    --net-bg: 0.95 0.04 148;
+    --net-border: 0.75 0.14 148;
+    --net-text: 0.3 0.12 148;
+
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+
+    --sidebar: 0.985 0 0;
+    --sidebar-foreground: 0.145 0 0;
+    --sidebar-primary: 0.205 0 0;
+    --sidebar-primary-foreground: 0.985 0 0;
+    --sidebar-accent: 0.97 0 0;
+    --sidebar-accent-foreground: 0.205 0 0;
+    --sidebar-border: 0.922 0 0;
+    --sidebar-ring: 0.708 0 0;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  /* Number inputs — monospace */
+  input[type="number"],
+  .mono {
+    font-family: "Geist Mono", monospace;
+  }
+
+  /* Remove number input spinners */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* ─── MS Fuel Card ────────────────────────────────────── */
+.fuel-card-ms {
+  background: oklch(var(--ms-bg));
+  border: 1.5px solid oklch(var(--ms-border));
+}
+
+.fuel-card-ms .fuel-header {
+  background: oklch(var(--ms-primary));
+  color: white;
+}
+
+.fuel-card-ms .fuel-badge {
+  background: oklch(var(--ms-secondary));
+  color: oklch(var(--ms-text));
+}
+
+.fuel-card-ms .fuel-input:focus {
+  border-color: oklch(var(--ms-primary));
+  box-shadow: 0 0 0 2px oklch(var(--ms-primary) / 0.2);
+  outline: none;
+}
+
+.fuel-card-ms .calc-field {
+  background: oklch(var(--ms-secondary));
+  color: oklch(var(--ms-text));
+  border-color: oklch(var(--ms-border));
+}
+
+/* ─── HSD Fuel Card ───────────────────────────────────── */
+.fuel-card-hsd {
+  background: oklch(var(--hsd-bg));
+  border: 1.5px solid oklch(var(--hsd-border));
+}
+
+.fuel-card-hsd .fuel-header {
+  background: oklch(var(--hsd-primary));
+  color: white;
+}
+
+.fuel-card-hsd .fuel-badge {
+  background: oklch(var(--hsd-secondary));
+  color: oklch(var(--hsd-text));
+}
+
+.fuel-card-hsd .fuel-input:focus {
+  border-color: oklch(var(--hsd-primary));
+  box-shadow: 0 0 0 2px oklch(var(--hsd-primary) / 0.2);
+  outline: none;
+}
+
+.fuel-card-hsd .calc-field {
+  background: oklch(var(--hsd-secondary));
+  color: oklch(var(--hsd-text));
+  border-color: oklch(var(--hsd-border));
+}
+
+/* ─── Net Cash Sales highlight ───────────────────────── */
+.net-sales-card {
+  background: oklch(var(--net-bg));
+  border: 2px solid oklch(var(--net-border));
+}
+
+.net-sales-value {
+  color: oklch(var(--net-primary));
+}
+
+/* ─── Fuel dot decoration ────────────────────────────── */
+.fuel-dots {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0.4;
+}
+
+.fuel-dots span {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+}
+
+/* ─── Print Styles ────────────────────────────────────── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  .print-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .print-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .fuel-card-ms,
+  .fuel-card-hsd {
+    background: white !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .fuel-card-ms .fuel-header,
+  .fuel-card-hsd .fuel-header {
+    background: #1a1a1a !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .net-sales-card {
+    background: #f0fdf4 !important;
+    border: 2px solid #16a34a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .net-sales-value {
+    color: #15803d !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+}
