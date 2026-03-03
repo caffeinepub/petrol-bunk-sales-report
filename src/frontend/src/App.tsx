@@ -41,8 +41,12 @@ import type { Deduction } from "./hooks/useQueries";
 // ─── Types ────────────────────────────────────────────────
 interface FuelState {
   pricePerLitre: string;
+  // Nozzle 1
   openingReading: string;
   closingReading: string;
+  // Nozzle 2
+  opening2Reading: string;
+  closing2Reading: string;
 }
 
 interface EngineOilRow {
@@ -77,22 +81,26 @@ const EMPTY_EXTRA_DEDUCTIONS: ExtraDeductions = {
 
 // ─── Constants ────────────────────────────────────────────
 const SAMPLE_MS: FuelState = {
-  pricePerLitre: "94.50",
-  openingReading: "12450.00",
-  closingReading: "12892.50",
+  pricePerLitre: "",
+  openingReading: "",
+  closingReading: "",
+  opening2Reading: "",
+  closing2Reading: "",
 };
 
 const SAMPLE_HSD: FuelState = {
-  pricePerLitre: "87.20",
-  openingReading: "8320.00",
-  closingReading: "8756.00",
+  pricePerLitre: "",
+  openingReading: "",
+  closingReading: "",
+  opening2Reading: "",
+  closing2Reading: "",
 };
 
 const SAMPLE_DEDUCTIONS: FixedDeductions = {
   cashReceived: { description: "", amount: "" },
-  dailyPumpTest: { description: "Nozzle test", amount: "1800" },
-  qrPayments: { description: "UPI collection", amount: "4500" },
-  cardPayments: { description: "Card swipe", amount: "2300" },
+  dailyPumpTest: { description: "", amount: "" },
+  qrPayments: { description: "", amount: "" },
+  cardPayments: { description: "", amount: "" },
 };
 
 const DEDUCTION_LABELS: Record<keyof FixedDeductions, string> = {
@@ -134,8 +142,10 @@ function FuelCard({ type, state, onChange }: FuelCardProps) {
   const sublabel = isMS ? "Motor Spirit / Petrol" : "High Speed Diesel";
   const cardClass = isMS ? "fuel-card-ms" : "fuel-card-hsd";
 
-  const volume = toNum(state.closingReading) - toNum(state.openingReading);
-  const grossSales = volume * toNum(state.pricePerLitre);
+  const volume1 = toNum(state.closingReading) - toNum(state.openingReading);
+  const volume2 = toNum(state.closing2Reading) - toNum(state.opening2Reading);
+  const totalVolume = volume1 + volume2;
+  const grossSales = Math.max(0, totalVolume * toNum(state.pricePerLitre));
 
   return (
     <motion.div
@@ -192,51 +202,139 @@ function FuelCard({ type, state, onChange }: FuelCardProps) {
           </div>
         </div>
 
-        {/* Readings row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
-              Opening Reading
+        {/* Nozzle 1 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold">
+              1
+            </span>
+            <Label className="text-xs font-bold uppercase tracking-wider text-foreground/70">
+              Nozzle 1
             </Label>
-            <Input
-              data-ocid={`${type}.opening_input`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={state.openingReading}
-              onChange={(e) => onChange("openingReading", e.target.value)}
-              className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
-              placeholder="0.00"
-            />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
-              Closing Reading
-            </Label>
-            <Input
-              data-ocid={`${type}.closing_input`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={state.closingReading}
-              onChange={(e) => onChange("closingReading", e.target.value)}
-              className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
-              placeholder="0.00"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+                Opening Reading
+              </Label>
+              <Input
+                data-ocid={`${type}.opening_input`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={state.openingReading}
+                onChange={(e) => onChange("openingReading", e.target.value)}
+                className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+                Closing Reading
+              </Label>
+              <Input
+                data-ocid={`${type}.closing_input`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={state.closingReading}
+                onChange={(e) => onChange("closingReading", e.target.value)}
+                className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
+                placeholder="0.00"
+              />
+            </div>
           </div>
-        </div>
-
-        {/* Calculated Fields */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
+          {/* Nozzle 1 Volume */}
+          <div className="space-y-1">
             <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
               Volume (Litres)
             </Label>
             <div className="calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border">
-              {volume >= 0 ? (
-                volume.toFixed(2)
+              {volume1 >= 0 ? (
+                volume1.toFixed(2)
               ) : (
-                <span className="text-destructive">{volume.toFixed(2)}</span>
+                <span className="text-destructive">{volume1.toFixed(2)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-white/20" />
+
+        {/* Nozzle 2 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold">
+              2
+            </span>
+            <Label className="text-xs font-bold uppercase tracking-wider text-foreground/70">
+              Nozzle 2
+            </Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+                Opening Reading
+              </Label>
+              <Input
+                data-ocid={`${type}.opening2_input`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={state.opening2Reading}
+                onChange={(e) => onChange("opening2Reading", e.target.value)}
+                className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+                Closing Reading
+              </Label>
+              <Input
+                data-ocid={`${type}.closing2_input`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={state.closing2Reading}
+                onChange={(e) => onChange("closing2Reading", e.target.value)}
+                className="font-mono fuel-input bg-white/60 border-white/40 focus:bg-white"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          {/* Nozzle 2 Volume */}
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+              Volume (Litres)
+            </Label>
+            <div className="calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border">
+              {volume2 >= 0 ? (
+                volume2.toFixed(2)
+              ) : (
+                <span className="text-destructive">{volume2.toFixed(2)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-white/20" />
+
+        {/* Combined Gross Sales */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+              Total Volume (L)
+            </Label>
+            <div className="calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border">
+              {totalVolume >= 0 ? (
+                totalVolume.toFixed(2)
+              ) : (
+                <span className="text-destructive">
+                  {totalVolume.toFixed(2)}
+                </span>
               )}
             </div>
           </div>
@@ -245,7 +343,7 @@ function FuelCard({ type, state, onChange }: FuelCardProps) {
               Gross Sales
             </Label>
             <div className="calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border">
-              {formatINR(grossSales > 0 ? grossSales : 0)}
+              {formatINR(grossSales)}
             </div>
           </div>
         </div>
@@ -605,11 +703,15 @@ export default function App() {
         pricePerLitre: savedReport.ms.pricePerLitre.toString(),
         openingReading: savedReport.ms.openingReading.toString(),
         closingReading: savedReport.ms.closingReading.toString(),
+        opening2Reading: "",
+        closing2Reading: "",
       });
       setHSD({
         pricePerLitre: savedReport.hsd.pricePerLitre.toString(),
         openingReading: savedReport.hsd.openingReading.toString(),
         closingReading: savedReport.hsd.closingReading.toString(),
+        opening2Reading: "",
+        closing2Reading: "",
       });
       if (savedReport.deductions && savedReport.deductions.length > 0) {
         const newDeds: FixedDeductions = { ...SAMPLE_DEDUCTIONS };
@@ -642,10 +744,14 @@ export default function App() {
   }, [savedReport]);
 
   // ─── Calculations ───────────────────────────────────────
-  const msVolume = toNum(ms.closingReading) - toNum(ms.openingReading);
+  const msVolume1 = toNum(ms.closingReading) - toNum(ms.openingReading);
+  const msVolume2 = toNum(ms.closing2Reading) - toNum(ms.opening2Reading);
+  const msVolume = msVolume1 + msVolume2;
   const msGross = Math.max(0, msVolume * toNum(ms.pricePerLitre));
 
-  const hsdVolume = toNum(hsd.closingReading) - toNum(hsd.openingReading);
+  const hsdVolume1 = toNum(hsd.closingReading) - toNum(hsd.openingReading);
+  const hsdVolume2 = toNum(hsd.closing2Reading) - toNum(hsd.opening2Reading);
+  const hsdVolume = hsdVolume1 + hsdVolume2;
   const hsdGross = Math.max(0, hsdVolume * toNum(hsd.pricePerLitre));
 
   const engineOilTotal = useMemo(
@@ -903,7 +1009,7 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Opening Reading",
+                              text: "Nozzle 1 – Opening Reading",
                               bold: true,
                             }),
                           ],
@@ -913,7 +1019,7 @@ export default function App() {
                     new TableCell({
                       children: [
                         new Paragraph({
-                          children: [new TextRun(hsd.openingReading)],
+                          children: [new TextRun(hsd.openingReading || "—")],
                         }),
                       ],
                     }),
@@ -926,7 +1032,7 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Closing Reading",
+                              text: "Nozzle 1 – Closing Reading",
                               bold: true,
                             }),
                           ],
@@ -936,7 +1042,7 @@ export default function App() {
                     new TableCell({
                       children: [
                         new Paragraph({
-                          children: [new TextRun(hsd.closingReading)],
+                          children: [new TextRun(hsd.closingReading || "—")],
                         }),
                       ],
                     }),
@@ -949,7 +1055,99 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Volume (Litres)",
+                              text: "Nozzle 1 – Volume (Litres)",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(`${hsdVolume1.toFixed(2)} L`)],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Opening Reading",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(hsd.opening2Reading || "—")],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Closing Reading",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(hsd.closing2Reading || "—")],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Volume (Litres)",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(`${hsdVolume2.toFixed(2)} L`)],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Total Volume (Litres)",
                               bold: true,
                             }),
                           ],
@@ -1033,7 +1231,7 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Opening Reading",
+                              text: "Nozzle 1 – Opening Reading",
                               bold: true,
                             }),
                           ],
@@ -1043,7 +1241,7 @@ export default function App() {
                     new TableCell({
                       children: [
                         new Paragraph({
-                          children: [new TextRun(ms.openingReading)],
+                          children: [new TextRun(ms.openingReading || "—")],
                         }),
                       ],
                     }),
@@ -1056,7 +1254,7 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Closing Reading",
+                              text: "Nozzle 1 – Closing Reading",
                               bold: true,
                             }),
                           ],
@@ -1066,7 +1264,7 @@ export default function App() {
                     new TableCell({
                       children: [
                         new Paragraph({
-                          children: [new TextRun(ms.closingReading)],
+                          children: [new TextRun(ms.closingReading || "—")],
                         }),
                       ],
                     }),
@@ -1079,7 +1277,99 @@ export default function App() {
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: "Volume (Litres)",
+                              text: "Nozzle 1 – Volume (Litres)",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(`${msVolume1.toFixed(2)} L`)],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Opening Reading",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(ms.opening2Reading || "—")],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Closing Reading",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(ms.closing2Reading || "—")],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Nozzle 2 – Volume (Litres)",
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [new TextRun(`${msVolume2.toFixed(2)} L`)],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "Total Volume (Litres)",
                               bold: true,
                             }),
                           ],
@@ -1431,8 +1721,12 @@ export default function App() {
     engineOilRows,
     engineOilTotal,
     msVolume,
+    msVolume1,
+    msVolume2,
     msGross,
     hsdVolume,
+    hsdVolume1,
+    hsdVolume2,
     hsdGross,
     totalGross,
     totalDeductions,
@@ -1536,14 +1830,8 @@ export default function App() {
       <header className="bg-primary text-primary-foreground shadow-md print-header">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            {/* BPCL Logo + Title */}
+            {/* Title */}
             <div className="flex items-center gap-3">
-              <img
-                data-ocid="header.logo"
-                src="/assets/generated/bpcl-logo-transparent.dim_200x80.png"
-                alt="BPCL Logo"
-                className="h-12 w-auto object-contain bg-white rounded-md px-2 py-1"
-              />
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-white">
                   Pump Daily Sales Report
@@ -2096,6 +2384,14 @@ export default function App() {
                 <div className="font-mono font-bold text-xl text-foreground">
                   {formatINR(hsdGross)}
                 </div>
+                <div className="text-xs text-muted-foreground pt-0.5 space-y-0.5">
+                  <div>
+                    Nozzle 1: {hsdVolume1 >= 0 ? hsdVolume1.toFixed(2) : 0} L
+                  </div>
+                  <div>
+                    Nozzle 2: {hsdVolume2 >= 0 ? hsdVolume2.toFixed(2) : 0} L
+                  </div>
+                </div>
               </div>
 
               {/* MS Sales */}
@@ -2111,6 +2407,14 @@ export default function App() {
                 </div>
                 <div className="font-mono font-bold text-xl text-foreground">
                   {formatINR(msGross)}
+                </div>
+                <div className="text-xs text-muted-foreground pt-0.5 space-y-0.5">
+                  <div>
+                    Nozzle 1: {msVolume1 >= 0 ? msVolume1.toFixed(2) : 0} L
+                  </div>
+                  <div>
+                    Nozzle 2: {msVolume2 >= 0 ? msVolume2.toFixed(2) : 0} L
+                  </div>
                 </div>
               </div>
 
