@@ -893,28 +893,42 @@ export default function App() {
       const hNozzles = emptyNozzles();
       for (let i = 0; i < Math.min(savedReport.hsdNozzles.length, 4); i++) {
         hNozzles[i] = {
-          open: savedReport.hsdNozzles[i].openReading.toString(),
-          close: savedReport.hsdNozzles[i].closeReading.toString(),
+          open:
+            savedReport.hsdNozzles[i].openReading > 0
+              ? savedReport.hsdNozzles[i].openReading.toString()
+              : "",
+          close:
+            savedReport.hsdNozzles[i].closeReading > 0
+              ? savedReport.hsdNozzles[i].closeReading.toString()
+              : "",
         };
       }
       setHsdNozzles(hNozzles);
-      setHsdPrice(savedReport.hsdPrice ? savedReport.hsdPrice.toString() : "");
+      setHsdPrice(
+        savedReport.hsdPrice > 0 ? savedReport.hsdPrice.toString() : "",
+      );
       setHsdTesting(
-        savedReport.hsdTesting ? savedReport.hsdTesting.toString() : "",
+        savedReport.hsdTesting > 0 ? savedReport.hsdTesting.toString() : "",
       );
 
       // MS
       const mNozzles = emptyNozzles();
       for (let i = 0; i < Math.min(savedReport.msNozzles.length, 4); i++) {
         mNozzles[i] = {
-          open: savedReport.msNozzles[i].openReading.toString(),
-          close: savedReport.msNozzles[i].closeReading.toString(),
+          open:
+            savedReport.msNozzles[i].openReading > 0
+              ? savedReport.msNozzles[i].openReading.toString()
+              : "",
+          close:
+            savedReport.msNozzles[i].closeReading > 0
+              ? savedReport.msNozzles[i].closeReading.toString()
+              : "",
         };
       }
       setMsNozzles(mNozzles);
-      setMsPrice(savedReport.msPrice ? savedReport.msPrice.toString() : "");
+      setMsPrice(savedReport.msPrice > 0 ? savedReport.msPrice.toString() : "");
       setMsTesting(
-        savedReport.msTesting ? savedReport.msTesting.toString() : "",
+        savedReport.msTesting > 0 ? savedReport.msTesting.toString() : "",
       );
 
       // Engine oil
@@ -922,8 +936,8 @@ export default function App() {
         savedReport.engineOilRows.map((r) => ({
           id: uid(),
           name: r.name,
-          quantity: r.quantity.toString(),
-          price: r.price.toString(),
+          quantity: r.quantity > 0 ? r.quantity.toString() : "",
+          price: r.price > 0 ? r.price.toString() : "",
         })),
       );
 
@@ -935,7 +949,7 @@ export default function App() {
             rows: tab.rows.map((r) => ({
               id: uid(),
               label: r.expenseLabel,
-              amount: r.amount.toString(),
+              amount: r.amount > 0 ? r.amount.toString() : "",
             })),
           })),
         );
@@ -945,7 +959,8 @@ export default function App() {
 
       // Balance
       setPrevDayBalance(
-        savedReport.previousDayBalanceCash !== 0
+        savedReport.previousDayBalanceCash !== 0 &&
+          savedReport.previousDayBalanceCash !== null
           ? savedReport.previousDayBalanceCash.toString()
           : "",
       );
@@ -954,16 +969,16 @@ export default function App() {
       try {
         const tankData = JSON.parse(savedReport.notes || "{}");
         setHsdTankOpen(
-          tankData.hsdTankOpen ? tankData.hsdTankOpen.toString() : "",
+          tankData.hsdTankOpen > 0 ? tankData.hsdTankOpen.toString() : "",
         );
         setHsdTankClose(
-          tankData.hsdTankClose ? tankData.hsdTankClose.toString() : "",
+          tankData.hsdTankClose > 0 ? tankData.hsdTankClose.toString() : "",
         );
         setMsTankOpen(
-          tankData.msTankOpen ? tankData.msTankOpen.toString() : "",
+          tankData.msTankOpen > 0 ? tankData.msTankOpen.toString() : "",
         );
         setMsTankClose(
-          tankData.msTankClose ? tankData.msTankClose.toString() : "",
+          tankData.msTankClose > 0 ? tankData.msTankClose.toString() : "",
         );
       } catch {
         setHsdTankOpen("");
