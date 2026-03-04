@@ -216,6 +216,26 @@
   background: linear-gradient(135deg, oklch(0.42 0.18 230) 0%, oklch(0.36 0.18 250) 100%);
 }
 
+/* ─── Touch-friendly inputs (mobile) ────────────────── */
+@media (max-width: 639px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="date"] {
+    min-height: 44px;
+  }
+}
+
+/* Explicit touch input class for inputs that need 44px on mobile */
+.dsr-touch-input {
+  min-height: 44px;
+}
+
+@media (min-width: 640px) {
+  .dsr-touch-input {
+    min-height: unset;
+  }
+}
+
 /* ─── Print Styles ────────────────────────────────────── */
 @media print {
   .no-print {

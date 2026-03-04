@@ -118,6 +118,7 @@ function emptyExpenseTabs(): ExpensesTabState[] {
     { tabName: "Daily Pump Test", rows: [] },
     { tabName: "QR Payments", rows: [] },
     { tabName: "Card Payments", rows: [] },
+    { tabName: "Expenses", rows: [] },
   ];
 }
 
@@ -187,13 +188,13 @@ function NozzleSection({
         </div>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
         {/* Price per litre */}
-        <div className="flex items-center gap-4">
-          <Label className="text-xs font-bold uppercase tracking-wider text-foreground/60 shrink-0 w-36">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <Label className="text-xs font-bold uppercase tracking-wider text-foreground/60 shrink-0 sm:w-36">
             Price per Litre (₹)
           </Label>
-          <div className="relative flex-1 max-w-[180px]">
+          <div className="relative flex-1 sm:max-w-[180px]">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-mono text-foreground/50">
               ₹
             </span>
@@ -204,7 +205,7 @@ function NozzleSection({
               min="0"
               value={price}
               onChange={(e) => onPriceChange(e.target.value)}
-              className="pl-7 font-mono dsr-fuel-input"
+              className="pl-7 font-mono dsr-fuel-input dsr-touch-input"
               placeholder="0.00"
             />
           </div>
@@ -212,8 +213,8 @@ function NozzleSection({
 
         <Separator className="opacity-30" />
 
-        {/* Nozzle table header */}
-        <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 items-center">
+        {/* Nozzle table header — hidden on mobile, visible on sm+ */}
+        <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr] gap-3 items-center">
           <div className="w-20 text-xs font-bold uppercase tracking-wider text-foreground/50">
             Nozzle
           </div>
@@ -230,47 +231,101 @@ function NozzleSection({
 
         {/* Nozzle rows */}
         {nozzles.map((nozzle, idx) => {
-          const hasOpen = nozzle.open !== "";
-          const hasClose = nozzle.close !== "";
           const vol = toNum(nozzle.close) - toNum(nozzle.open);
-          const showVol = hasOpen || hasClose;
           return (
-            <div
-              key={`nozzle-${idx + 1}`}
-              className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 items-center"
-            >
-              <div className="w-20 flex items-center gap-1.5">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold shrink-0">
-                  {idx + 1}
-                </span>
-                <span className="text-xs font-semibold text-foreground/60 hidden sm:inline">
-                  N{idx + 1}
-                </span>
+            <div key={`nozzle-${idx + 1}`} className="space-y-2 sm:space-y-0">
+              {/* Mobile layout: stacked card */}
+              <div className="sm:hidden">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-semibold text-foreground/60">
+                    Nozzle {idx + 1}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-foreground/50">
+                      Opening
+                    </Label>
+                    <Input
+                      data-ocid={`${fuelType}.nozzle.${idx + 1}.open.input`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={nozzle.open}
+                      onChange={(e) =>
+                        onNozzleChange(idx, "open", e.target.value)
+                      }
+                      className="font-mono dsr-fuel-input dsr-touch-input"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-foreground/50">
+                      Closing
+                    </Label>
+                    <Input
+                      data-ocid={`${fuelType}.nozzle.${idx + 1}.close.input`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={nozzle.close}
+                      onChange={(e) =>
+                        onNozzleChange(idx, "close", e.target.value)
+                      }
+                      className="font-mono dsr-fuel-input dsr-touch-input"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-foreground/50 shrink-0">
+                    Volume (L)
+                  </Label>
+                  <div
+                    className={`dsr-calc-field flex-1 rounded-md px-3 py-2 font-mono text-sm font-semibold border ${vol < 0 ? "text-destructive" : ""}`}
+                  >
+                    {vol.toFixed(2)}
+                  </div>
+                </div>
               </div>
-              <Input
-                data-ocid={`${fuelType}.nozzle.${idx + 1}.open.input`}
-                type="number"
-                step="0.01"
-                min="0"
-                value={nozzle.open}
-                onChange={(e) => onNozzleChange(idx, "open", e.target.value)}
-                className="font-mono dsr-fuel-input"
-                placeholder=""
-              />
-              <Input
-                data-ocid={`${fuelType}.nozzle.${idx + 1}.close.input`}
-                type="number"
-                step="0.01"
-                min="0"
-                value={nozzle.close}
-                onChange={(e) => onNozzleChange(idx, "close", e.target.value)}
-                className="font-mono dsr-fuel-input"
-                placeholder=""
-              />
-              <div
-                className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border ${showVol && vol < 0 ? "text-destructive" : ""}`}
-              >
-                {showVol ? vol.toFixed(2) : ""}
+              {/* Desktop/tablet layout: 4-col grid */}
+              <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr] gap-3 items-center">
+                <div className="w-20 flex items-center gap-1.5">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-white text-xs font-bold shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-semibold text-foreground/60">
+                    N{idx + 1}
+                  </span>
+                </div>
+                <Input
+                  data-ocid={`${fuelType}.nozzle.${idx + 1}.open.input`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={nozzle.open}
+                  onChange={(e) => onNozzleChange(idx, "open", e.target.value)}
+                  className="font-mono dsr-fuel-input"
+                  placeholder="0"
+                />
+                <Input
+                  data-ocid={`${fuelType}.nozzle.${idx + 1}.close.input`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={nozzle.close}
+                  onChange={(e) => onNozzleChange(idx, "close", e.target.value)}
+                  className="font-mono dsr-fuel-input"
+                  placeholder="0"
+                />
+                <div
+                  className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border ${vol < 0 ? "text-destructive" : ""}`}
+                >
+                  {vol.toFixed(2)}
+                </div>
               </div>
             </div>
           );
@@ -279,36 +334,35 @@ function NozzleSection({
         <Separator className="opacity-30" />
 
         {/* Testing row */}
-        <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 items-center">
-          <div className="w-20 text-xs font-bold uppercase tracking-wider text-foreground/60">
+        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr_1fr_1fr] gap-2 sm:gap-3 sm:items-center">
+          <div className="sm:w-20 text-xs font-bold uppercase tracking-wider text-foreground/60">
             Testing
           </div>
-          <Input
-            data-ocid={`${fuelType}.testing.input`}
-            type="number"
-            step="0.01"
-            min="0"
-            value={testing}
-            onChange={(e) => onTestingChange(e.target.value)}
-            className="font-mono dsr-fuel-input col-span-2"
-            placeholder=""
-          />
-          <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-foreground/50">
-            {testing !== "" ? `-${testingLitres.toFixed(2)}` : ""}
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+            <Input
+              data-ocid={`${fuelType}.testing.input`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={testing}
+              onChange={(e) => onTestingChange(e.target.value)}
+              className="font-mono dsr-fuel-input dsr-touch-input sm:col-span-2"
+              placeholder=""
+            />
+            <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-foreground/50">
+              {testing !== "" ? `-${testingLitres.toFixed(2)}` : ""}
+            </div>
           </div>
         </div>
 
         {/* Totals */}
-        {/* Only show totals row if at least one nozzle has a reading */}
-        <div className="grid grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-1">
           <div className="space-y-1">
             <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/50">
               Total Volume (L)
             </Label>
             <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border">
-              {nozzles.some((n) => n.open !== "" || n.close !== "")
-                ? totalVolume.toFixed(2)
-                : ""}
+              {totalVolume.toFixed(2)}
             </div>
           </div>
           <div className="space-y-1">
@@ -316,12 +370,9 @@ function NozzleSection({
               Total Sale (L)
             </Label>
             <div
-              className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border ${nozzles.some((n) => n.open !== "" || n.close !== "") && totalSale < 0 ? "text-destructive" : ""}`}
+              className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border ${totalSale < 0 ? "text-destructive" : ""}`}
             >
-              {nozzles.some((n) => n.open !== "" || n.close !== "") ||
-              testing !== ""
-                ? totalSale.toFixed(2)
-                : ""}
+              {totalSale.toFixed(2)}
             </div>
           </div>
           <div className="space-y-1">
@@ -329,10 +380,7 @@ function NozzleSection({
               Gross Sale
             </Label>
             <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border">
-              {nozzles.some((n) => n.open !== "" || n.close !== "") ||
-              price !== ""
-                ? formatINR(grossSale)
-                : ""}
+              {formatINR(grossSale)}
             </div>
           </div>
         </div>
@@ -389,7 +437,7 @@ function EngineOilSection({
         </Button>
       </div>
 
-      <div className="p-5 space-y-3">
+      <div className="p-4 sm:p-5 space-y-3">
         {rows.length === 0 ? (
           <div
             data-ocid="engine-oil.empty_state"
@@ -400,8 +448,8 @@ function EngineOilSection({
           </div>
         ) : (
           <>
-            {/* Column headers */}
-            <div className="grid grid-cols-[1fr_100px_100px_120px_36px] gap-3 px-1">
+            {/* Column headers — hidden on mobile */}
+            <div className="hidden sm:grid grid-cols-[1fr_100px_100px_120px_36px] gap-3 px-1">
               <span className="text-xs font-bold uppercase tracking-wider text-foreground/50">
                 Product Name
               </span>
@@ -428,52 +476,109 @@ function EngineOilSection({
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="grid grid-cols-[1fr_100px_100px_120px_36px] gap-3 items-center"
                   >
-                    <Input
-                      data-ocid={`engine-oil.name.input.${idx + 1}`}
-                      type="text"
-                      value={row.name}
-                      onChange={(e) => onChange(row.id, "name", e.target.value)}
-                      placeholder="Product name"
-                      className="text-sm"
-                    />
-                    <Input
-                      data-ocid={`engine-oil.qty.input.${idx + 1}`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        onChange(row.id, "quantity", e.target.value)
-                      }
-                      placeholder="0"
-                      className="font-mono text-sm"
-                    />
-                    <Input
-                      data-ocid={`engine-oil.price.input.${idx + 1}`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.price}
-                      onChange={(e) =>
-                        onChange(row.id, "price", e.target.value)
-                      }
-                      placeholder="0.00"
-                      className="font-mono text-sm"
-                    />
-                    <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-right">
-                      {formatINR(rowTotal)}
+                    {/* Mobile: stacked card layout */}
+                    <div className="sm:hidden space-y-2 p-3 rounded-lg border border-amber-200 bg-amber-50/50">
+                      <Input
+                        data-ocid={`engine-oil.name.input.${idx + 1}`}
+                        type="text"
+                        value={row.name}
+                        onChange={(e) =>
+                          onChange(row.id, "name", e.target.value)
+                        }
+                        placeholder="Product name"
+                        className="text-sm dsr-touch-input"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          data-ocid={`engine-oil.qty.input.${idx + 1}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.quantity}
+                          onChange={(e) =>
+                            onChange(row.id, "quantity", e.target.value)
+                          }
+                          placeholder="Qty"
+                          className="font-mono text-sm dsr-touch-input"
+                        />
+                        <Input
+                          data-ocid={`engine-oil.price.input.${idx + 1}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.price}
+                          onChange={(e) =>
+                            onChange(row.id, "price", e.target.value)
+                          }
+                          placeholder="Price ₹"
+                          className="font-mono text-sm dsr-touch-input"
+                        />
+                      </div>
+                      <div className="grid grid-cols-[1fr_36px] gap-2 items-center">
+                        <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-right">
+                          {formatINR(rowTotal)}
+                        </div>
+                        <Button
+                          data-ocid={`engine-oil.delete_button.${idx + 1}`}
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onRemove(row.id)}
+                          className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      data-ocid={`engine-oil.delete_button.${idx + 1}`}
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onRemove(row.id)}
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
+                    {/* Desktop/tablet: 5-col grid */}
+                    <div className="hidden sm:grid grid-cols-[1fr_100px_100px_120px_36px] gap-3 items-center">
+                      <Input
+                        data-ocid={`engine-oil.name.input.${idx + 1}`}
+                        type="text"
+                        value={row.name}
+                        onChange={(e) =>
+                          onChange(row.id, "name", e.target.value)
+                        }
+                        placeholder="Product name"
+                        className="text-sm"
+                      />
+                      <Input
+                        data-ocid={`engine-oil.qty.input.${idx + 1}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={row.quantity}
+                        onChange={(e) =>
+                          onChange(row.id, "quantity", e.target.value)
+                        }
+                        placeholder="0"
+                        className="font-mono text-sm"
+                      />
+                      <Input
+                        data-ocid={`engine-oil.price.input.${idx + 1}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={row.price}
+                        onChange={(e) =>
+                          onChange(row.id, "price", e.target.value)
+                        }
+                        placeholder="0.00"
+                        className="font-mono text-sm"
+                      />
+                      <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-right">
+                        {formatINR(rowTotal)}
+                      </div>
+                      <Button
+                        data-ocid={`engine-oil.delete_button.${idx + 1}`}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onRemove(row.id)}
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </motion.div>
                 );
               })}
@@ -519,6 +624,11 @@ const EXPENSE_TAB_COLORS = [
     border: "border-rose-200",
     header: "bg-rose-50",
     badge: "bg-rose-100 text-rose-700",
+  },
+  {
+    border: "border-emerald-200",
+    header: "bg-emerald-50",
+    badge: "bg-emerald-100 text-emerald-700",
   },
 ];
 
@@ -624,49 +734,107 @@ function ExpensesSection({
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.18 }}
-                        className="grid grid-cols-[1fr_150px_36px] gap-2 items-center"
                       >
-                        <Input
-                          data-ocid={`expenses.label.input.${tabIdx + 1}.${rowIdx + 1}`}
-                          type="text"
-                          value={row.label}
-                          onChange={(e) =>
-                            onChangeRow(tabIdx, row.id, "label", e.target.value)
-                          }
-                          placeholder="Description"
-                          className="text-sm h-8"
-                        />
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
-                            ₹
-                          </span>
+                        {/* Mobile layout: description full-width, then amount+delete */}
+                        <div className="sm:hidden space-y-1.5">
                           <Input
-                            data-ocid={`expenses.amount.input.${tabIdx + 1}.${rowIdx + 1}`}
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={row.amount}
+                            data-ocid={`expenses.label.input.${tabIdx + 1}.${rowIdx + 1}`}
+                            type="text"
+                            value={row.label}
                             onChange={(e) =>
                               onChangeRow(
                                 tabIdx,
                                 row.id,
-                                "amount",
+                                "label",
                                 e.target.value,
                               )
                             }
-                            placeholder="0.00"
-                            className="pl-6 font-mono text-sm h-8"
+                            placeholder="Description"
+                            className="text-sm dsr-touch-input"
                           />
+                          <div className="grid grid-cols-[1fr_36px] gap-2 items-center">
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
+                                ₹
+                              </span>
+                              <Input
+                                data-ocid={`expenses.amount.input.${tabIdx + 1}.${rowIdx + 1}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={row.amount}
+                                onChange={(e) =>
+                                  onChangeRow(
+                                    tabIdx,
+                                    row.id,
+                                    "amount",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0.00"
+                                className="pl-6 font-mono text-sm dsr-touch-input"
+                              />
+                            </div>
+                            <Button
+                              data-ocid={`expenses.delete_button.${tabIdx + 1}.${rowIdx + 1}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onRemoveRow(tabIdx, row.id)}
+                              className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
-                        <Button
-                          data-ocid={`expenses.delete_button.${tabIdx + 1}.${rowIdx + 1}`}
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onRemoveRow(tabIdx, row.id)}
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
+                        {/* Desktop/tablet: 3-col grid */}
+                        <div className="hidden sm:grid grid-cols-[1fr_150px_36px] gap-2 items-center">
+                          <Input
+                            data-ocid={`expenses.label.input.${tabIdx + 1}.${rowIdx + 1}`}
+                            type="text"
+                            value={row.label}
+                            onChange={(e) =>
+                              onChangeRow(
+                                tabIdx,
+                                row.id,
+                                "label",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Description"
+                            className="text-sm h-8"
+                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
+                              ₹
+                            </span>
+                            <Input
+                              data-ocid={`expenses.amount.input.${tabIdx + 1}.${rowIdx + 1}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={row.amount}
+                              onChange={(e) =>
+                                onChangeRow(
+                                  tabIdx,
+                                  row.id,
+                                  "amount",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="0.00"
+                              className="pl-6 font-mono text-sm h-8"
+                            />
+                          </div>
+                          <Button
+                            data-ocid={`expenses.delete_button.${tabIdx + 1}.${rowIdx + 1}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRemoveRow(tabIdx, row.id)}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -883,9 +1051,9 @@ function CashDenominationCalculator({
             Notes
           </p>
           <div className="grid grid-cols-[auto_1fr_auto] gap-3 items-center text-xs font-bold uppercase tracking-wider text-foreground/40 px-1">
-            <span className="w-16">Value</span>
+            <span className="w-14 sm:w-16">Value</span>
             <span>Count</span>
-            <span className="w-28 text-right">Amount</span>
+            <span className="w-20 sm:w-28 text-right">Amount</span>
           </div>
           {NOTES.map((note) => {
             const count = toNum(denoms[note]?.count ?? "");
@@ -895,7 +1063,7 @@ function CashDenominationCalculator({
                 key={note}
                 className="grid grid-cols-[auto_1fr_auto] gap-3 items-center"
               >
-                <div className="w-16 text-sm font-bold font-mono text-foreground/80 bg-slate-100 rounded-md px-2 py-1.5 text-center border border-slate-200">
+                <div className="w-14 sm:w-16 text-sm font-bold font-mono text-foreground/80 bg-slate-100 rounded-md px-2 py-1.5 text-center border border-slate-200">
                   ₹{note}
                 </div>
                 <Input
@@ -906,9 +1074,9 @@ function CashDenominationCalculator({
                   value={denoms[note]?.count ?? ""}
                   onChange={(e) => onDenomChange(note, e.target.value)}
                   placeholder="0"
-                  className="font-mono text-sm"
+                  className="font-mono text-sm dsr-touch-input"
                 />
-                <div className="w-28 font-mono text-sm font-semibold text-right text-foreground/70 bg-slate-50 rounded-md px-2 py-2 border border-slate-200">
+                <div className="w-20 sm:w-28 font-mono text-xs sm:text-sm font-semibold text-right text-foreground/70 bg-slate-50 rounded-md px-2 py-2 border border-slate-200">
                   {formatINR(subtotal)}
                 </div>
               </div>
@@ -1061,6 +1229,8 @@ export default function App() {
 
   // ─ UI
   const [showHistory, setShowHistory] = useState(false);
+  // Track whether the current date was selected from History (load data) or typed/default (stay blank)
+  const [loadDataForDate, setLoadDataForDate] = useState<string | null>(null);
 
   // ─── Backend hooks ────────────────────────────────────
   const { data: savedReport, isLoading: isLoadingReport } = useGetReport(date);
@@ -1069,7 +1239,8 @@ export default function App() {
 
   // ─── Load saved report when date/data changes ─────────
   useEffect(() => {
-    if (savedReport) {
+    // Only populate fields when explicitly loading from history
+    if (savedReport && loadDataForDate === date) {
       // HSD
       const hNozzles = emptyNozzles();
       for (let i = 0; i < Math.min(savedReport.hsdNozzles.length, 2); i++) {
@@ -1128,6 +1299,7 @@ export default function App() {
         "Daily Pump Test",
         "QR Payments",
         "Card Payments",
+        "Expenses",
       ];
       if (savedReport.deductionsTabs && savedReport.deductionsTabs.length > 0) {
         const mapped: ExpensesTabState[] = FIXED_TABS.map((fixedName) => {
@@ -1168,8 +1340,8 @@ export default function App() {
       } catch {
         setDenoms(emptyDenoms());
       }
-    } else if (savedReport === null && !isLoadingReport) {
-      // No saved data for this date — clear everything
+    } else if (!isLoadingReport) {
+      // Either no saved data, or date was not selected from history — always show blank fields
       setHsdNozzles(emptyNozzles());
       setMsNozzles(emptyNozzles());
       setHsdPrice("");
@@ -1180,7 +1352,7 @@ export default function App() {
       setExpensesTabs(emptyExpenseTabs());
       setDenoms(emptyDenoms());
     }
-  }, [savedReport, isLoadingReport]);
+  }, [savedReport, isLoadingReport, loadDataForDate, date]);
 
   // ─── Calculations ──────────────────────────────────────
   const hsdVolumes = hsdNozzles.map((n) => toNum(n.close) - toNum(n.open));
@@ -1362,6 +1534,7 @@ export default function App() {
 
   // ─── History handler ─────────────────────────────────
   const handleLoadFromHistory = useCallback((historyDate: string) => {
+    setLoadDataForDate(historyDate);
     setDate(historyDate);
     setShowHistory(false);
   }, []);
@@ -1526,87 +1699,96 @@ export default function App() {
 
       {/* ── Top Bar ───────────────────────────────────── */}
       <header className="dsr-topbar no-print sticky top-0 z-50 shadow-md">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
-          {/* Title */}
-          <div className="flex items-center gap-2.5 mr-auto">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20">
-              <Fuel className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-sm sm:text-base tracking-tight leading-none">
-                PUMP DAILY SALES REPORT
-              </h1>
-              <p className="text-white/60 text-xs hidden sm:block">
-                Petrol Bunk Daily Sales Record
-              </p>
-            </div>
-          </div>
+        <div className="max-w-[900px] mx-auto px-4 py-2 sm:py-3">
+          {/* Mobile: 2-row layout. Tablet/Desktop: single row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            {/* Row 1 (mobile): Title + Date picker */}
+            <div className="flex items-center gap-2.5">
+              {/* Title */}
+              <div className="flex items-center gap-2.5 mr-auto sm:mr-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20 shrink-0">
+                  <Fuel className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-white font-bold text-sm sm:text-base tracking-tight leading-none">
+                    PUMP DAILY SALES REPORT
+                  </h1>
+                  <p className="text-white/60 text-xs hidden sm:block">
+                    Petrol Bunk Daily Sales Record
+                  </p>
+                </div>
+              </div>
 
-          {/* Date picker */}
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 border border-white/20">
-            <CalendarDays className="w-4 h-4 text-white/70 shrink-0" />
-            <input
-              data-ocid="header.date.input"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-white text-sm font-mono focus:outline-none w-[130px]"
-            />
-          </div>
+              {/* Date picker — inline in row 1 on mobile, stays at end on sm+ */}
+              <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2.5 sm:px-3 py-1.5 border border-white/20 ml-auto sm:ml-0">
+                <CalendarDays className="w-4 h-4 text-white/70 shrink-0" />
+                <input
+                  data-ocid="header.date.input"
+                  type="date"
+                  value={date}
+                  onChange={(e) => {
+                    setLoadDataForDate(null);
+                    setDate(e.target.value);
+                  }}
+                  className="bg-transparent text-white text-sm font-mono focus:outline-none w-[120px] sm:w-[130px]"
+                />
+              </div>
+            </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <Button
-              data-ocid="header.history.button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowHistory(true)}
-              className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 hidden sm:flex"
-            >
-              <History className="w-4 h-4" />
-              History
-            </Button>
-            <Button
-              data-ocid="header.save.button"
-              variant="ghost"
-              size="sm"
-              onClick={handleSave}
-              disabled={saveReportMutation.isPending}
-              className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5"
-            >
-              {saveReportMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">Save</span>
-            </Button>
-            <Button
-              data-ocid="header.download.button"
-              variant="ghost"
-              size="sm"
-              onClick={handleDownload}
-              className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Download</span>
-            </Button>
-            <Button
-              data-ocid="header.print.button"
-              variant="ghost"
-              size="sm"
-              onClick={() => window.print()}
-              className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Print</span>
-            </Button>
+            {/* Row 2 (mobile): Action buttons full-width. On sm+: pushed to right in single row */}
+            <div className="flex items-center gap-1.5 sm:gap-2 sm:ml-auto">
+              <Button
+                data-ocid="header.history.button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHistory(true)}
+                className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
+              >
+                <History className="w-4 h-4" />
+                <span>History</span>
+              </Button>
+              <Button
+                data-ocid="header.save.button"
+                variant="ghost"
+                size="sm"
+                onClick={handleSave}
+                disabled={saveReportMutation.isPending}
+                className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
+              >
+                {saveReportMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>Save</span>
+              </Button>
+              <Button
+                data-ocid="header.download.button"
+                variant="ghost"
+                size="sm"
+                onClick={handleDownload}
+                className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download</span>
+              </Button>
+              <Button
+                data-ocid="header.print.button"
+                variant="ghost"
+                size="sm"
+                onClick={() => window.print()}
+                className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* ── Main Content ──────────────────────────────── */}
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6 print-container">
+      <main className="max-w-[900px] mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6 print-container">
         {/* Loading state */}
         {isLoadingReport && (
           <div
