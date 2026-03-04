@@ -17,19 +17,21 @@ export interface DailyReport {
   'hsdPrice' : number,
   'date' : string,
   'notes' : string,
-  'previousDayBalanceCash' : number,
   'hsdTesting' : number,
-  'expensesTabs' : Array<ExpensesTab>,
   'hsdNozzles' : Array<Nozzle>,
   'engineOilRows' : Array<EngineOilRow>,
+  'deductionsTabs' : Array<DeductionsTab>,
+}
+export interface DeductionRow { 'expenseLabel' : string, 'amount' : number }
+export interface DeductionsTab {
+  'tabName' : string,
+  'rows' : Array<DeductionRow>,
 }
 export interface EngineOilRow {
   'name' : string,
   'quantity' : number,
   'price' : number,
 }
-export interface ExpenseRow { 'expenseLabel' : string, 'amount' : number }
-export interface ExpensesTab { 'tabName' : string, 'rows' : Array<ExpenseRow> }
 export interface Nozzle { 'closeReading' : number, 'openReading' : number }
 export interface _SERVICE {
   'deleteReport' : ActorMethod<[string], undefined>,

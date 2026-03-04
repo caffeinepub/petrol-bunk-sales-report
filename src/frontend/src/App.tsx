@@ -10,28 +10,27 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  AlignmentType,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from "docx";
-import { saveAs } from "file-saver";
+// Word/RTF export helpers (no external library needed)
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
 import {
   CalendarDays,
   ChevronRight,
+  Coins,
   Download,
-  Droplets,
   Fuel,
   History,
   Loader2,
-  Minus,
   Package,
   Plus,
   Printer,
@@ -74,6 +73,14 @@ interface ExpensesTabState {
   rows: ExpenseRowState[];
 }
 
+interface DenomState {
+  count: string;
+}
+
+// ─── Denomination config ──────────────────────────────────
+const NOTES = [500, 200, 100, 50, 20, 10] as const;
+const COINS = [10, 5, 2, 1] as const;
+
 // ─── Utilities ────────────────────────────────────────────
 function toNum(val: string): number {
   const n = Number.parseFloat(val);
@@ -97,11 +104,9 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
-// ─── Empty state factory ──────────────────────────────────
+// ─── Empty state factories ────────────────────────────────
 function emptyNozzles(): NozzleState[] {
   return [
-    { open: "", close: "" },
-    { open: "", close: "" },
     { open: "", close: "" },
     { open: "", close: "" },
   ];
@@ -110,13 +115,20 @@ function emptyNozzles(): NozzleState[] {
 function emptyExpenseTabs(): ExpensesTabState[] {
   return [
     { tabName: "Cash Received", rows: [] },
+    { tabName: "Daily Pump Test", rows: [] },
     { tabName: "QR Payments", rows: [] },
     { tabName: "Card Payments", rows: [] },
   ];
 }
 
-// ─── Sub-components ───────────────────────────────────────
+function emptyDenoms(): Record<number, DenomState> {
+  const d: Record<number, DenomState> = {};
+  for (const n of NOTES) d[n] = { count: "" };
+  for (const c of COINS) d[c] = { count: "" };
+  return d;
+}
 
+// ─── NozzleSection ────────────────────────────────────────
 interface NozzleSectionProps {
   fuelType: "hsd" | "ms";
   nozzles: NozzleState[];
@@ -156,7 +168,7 @@ function NozzleSection({
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={`rounded-xl overflow-hidden border-2 shadow-sm ${cardClass}`}
     >
-      {/* Header */}
+      {/* Card Header */}
       <div className={`px-5 py-3.5 flex items-center gap-3 ${headerClass}`}>
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20">
           <Fuel className="w-4 h-4 text-white" />
@@ -169,7 +181,7 @@ function NozzleSection({
         </div>
         <div className="dsr-dots">
           {Array.from({ length: 6 }).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: decorative dots
+            // biome-ignore lint/suspicious/noArrayIndexKey: decorative
             <span key={i} />
           ))}
         </div>
@@ -218,7 +230,10 @@ function NozzleSection({
 
         {/* Nozzle rows */}
         {nozzles.map((nozzle, idx) => {
+          const hasOpen = nozzle.open !== "";
+          const hasClose = nozzle.close !== "";
           const vol = toNum(nozzle.close) - toNum(nozzle.open);
+          const showVol = hasOpen || hasClose;
           return (
             <div
               key={`nozzle-${idx + 1}`}
@@ -240,7 +255,7 @@ function NozzleSection({
                 value={nozzle.open}
                 onChange={(e) => onNozzleChange(idx, "open", e.target.value)}
                 className="font-mono dsr-fuel-input"
-                placeholder="0.00"
+                placeholder=""
               />
               <Input
                 data-ocid={`${fuelType}.nozzle.${idx + 1}.close.input`}
@@ -250,12 +265,12 @@ function NozzleSection({
                 value={nozzle.close}
                 onChange={(e) => onNozzleChange(idx, "close", e.target.value)}
                 className="font-mono dsr-fuel-input"
-                placeholder="0.00"
+                placeholder=""
               />
               <div
-                className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border ${vol < 0 ? "text-destructive" : ""}`}
+                className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border ${showVol && vol < 0 ? "text-destructive" : ""}`}
               >
-                {vol.toFixed(2)}
+                {showVol ? vol.toFixed(2) : ""}
               </div>
             </div>
           );
@@ -276,21 +291,24 @@ function NozzleSection({
             value={testing}
             onChange={(e) => onTestingChange(e.target.value)}
             className="font-mono dsr-fuel-input col-span-2"
-            placeholder="0.00"
+            placeholder=""
           />
           <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-semibold border text-foreground/50">
-            -{testingLitres.toFixed(2)}
+            {testing !== "" ? `-${testingLitres.toFixed(2)}` : ""}
           </div>
         </div>
 
         {/* Totals */}
+        {/* Only show totals row if at least one nozzle has a reading */}
         <div className="grid grid-cols-3 gap-3 pt-1">
           <div className="space-y-1">
             <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/50">
               Total Volume (L)
             </Label>
             <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border">
-              {totalVolume.toFixed(2)}
+              {nozzles.some((n) => n.open !== "" || n.close !== "")
+                ? totalVolume.toFixed(2)
+                : ""}
             </div>
           </div>
           <div className="space-y-1">
@@ -298,9 +316,12 @@ function NozzleSection({
               Total Sale (L)
             </Label>
             <div
-              className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border ${totalSale < 0 ? "text-destructive" : ""}`}
+              className={`dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border ${nozzles.some((n) => n.open !== "" || n.close !== "") && totalSale < 0 ? "text-destructive" : ""}`}
             >
-              {totalSale.toFixed(2)}
+              {nozzles.some((n) => n.open !== "" || n.close !== "") ||
+              testing !== ""
+                ? totalSale.toFixed(2)
+                : ""}
             </div>
           </div>
           <div className="space-y-1">
@@ -308,7 +329,10 @@ function NozzleSection({
               Gross Sale
             </Label>
             <div className="dsr-calc-field rounded-md px-3 py-2 font-mono text-sm font-bold border">
-              {formatINR(grossSale)}
+              {nozzles.some((n) => n.open !== "" || n.close !== "") ||
+              price !== ""
+                ? formatINR(grossSale)
+                : ""}
             </div>
           </div>
         </div>
@@ -317,7 +341,7 @@ function NozzleSection({
   );
 }
 
-// ─── Engine Oil Section ───────────────────────────────────
+// ─── EngineOilSection ─────────────────────────────────────
 interface EngineOilSectionProps {
   rows: EngineOilRowState[];
   onAdd: () => void;
@@ -474,209 +498,17 @@ function EngineOilSection({
   );
 }
 
-// ─── Tank Stock Section ───────────────────────────────────
-interface TankStockSectionProps {
-  hsdTankOpen: string;
-  hsdTankClose: string;
-  msTankOpen: string;
-  msTankClose: string;
-  hsdNozzleSaleLitres: number;
-  msNozzleSaleLitres: number;
-  onHsdTankOpenChange: (val: string) => void;
-  onHsdTankCloseChange: (val: string) => void;
-  onMsTankOpenChange: (val: string) => void;
-  onMsTankCloseChange: (val: string) => void;
-}
-
-function TankStockSection({
-  hsdTankOpen,
-  hsdTankClose,
-  msTankOpen,
-  msTankClose,
-  hsdNozzleSaleLitres,
-  msNozzleSaleLitres,
-  onHsdTankOpenChange,
-  onHsdTankCloseChange,
-  onMsTankOpenChange,
-  onMsTankCloseChange,
-}: TankStockSectionProps) {
-  const hsdTankSale = toNum(hsdTankOpen) - toNum(hsdTankClose);
-  const msTankSale = toNum(msTankOpen) - toNum(msTankClose);
-  const hsdVariance = hsdNozzleSaleLitres - hsdTankSale;
-  const msVariance = msNozzleSaleLitres - msTankSale;
-
-  function VarianceBadge({ variance }: { variance: number }) {
-    const isZero = Math.abs(variance) < 0.001;
-    const isPositive = variance > 0;
-    return (
-      <div
-        className={`rounded-lg px-3 py-2 text-center font-mono text-sm font-bold border-2 min-w-[90px] ${
-          isZero
-            ? "bg-slate-50 border-slate-200 text-slate-500"
-            : isPositive
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-red-50 border-red-200 text-red-700"
-        }`}
-      >
-        {isZero
-          ? "0.00"
-          : isPositive
-            ? `+${variance.toFixed(2)}`
-            : variance.toFixed(2)}
-      </div>
-    );
-  }
-
-  const rows = [
-    {
-      fuel: "HSD",
-      color: "bg-blue-100 text-blue-800 border-blue-200",
-      tankOpen: hsdTankOpen,
-      tankClose: hsdTankClose,
-      tankSale: hsdTankSale,
-      variance: hsdVariance,
-      onOpenChange: onHsdTankOpenChange,
-      onCloseChange: onHsdTankCloseChange,
-      openOcid: "tanks.hsd.open.input" as const,
-      closeOcid: "tanks.hsd.close.input" as const,
-    },
-    {
-      fuel: "MS",
-      color: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      tankOpen: msTankOpen,
-      tankClose: msTankClose,
-      tankSale: msTankSale,
-      variance: msVariance,
-      onOpenChange: onMsTankOpenChange,
-      onCloseChange: onMsTankCloseChange,
-      openOcid: "tanks.ms.open.input" as const,
-      closeOcid: "tanks.ms.close.input" as const,
-    },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      className="rounded-xl overflow-hidden border-2 dsr-card-tanks shadow-sm"
-    >
-      {/* Header */}
-      <div className="px-5 py-3.5 flex items-center gap-3 dsr-header-tanks">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20">
-          <Droplets className="w-4 h-4 text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="text-white font-bold text-base tracking-wide">
-            HSD &amp; MS TANKS
-          </div>
-          <div className="text-white/70 text-xs">
-            Tank Stock — Opening &amp; Closing Reconciliation
-          </div>
-        </div>
-        <div className="dsr-dots">
-          {Array.from({ length: 6 }).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: decorative dots
-            <span key={i} />
-          ))}
-        </div>
-      </div>
-
-      <div className="p-5 space-y-4">
-        {/* Column headers */}
-        <div className="grid grid-cols-[60px_1fr_1fr_100px_100px] gap-3 items-center px-1">
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground/50">
-            Fuel
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground/50">
-            Opening Stock (L)
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground/50">
-            Closing Stock (L)
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground/50 text-center">
-            Tank Sale (L)
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground/50 text-center">
-            Tank vs Nozzle
-          </div>
-        </div>
-
-        {rows.map((row) => (
-          <div
-            key={row.fuel}
-            className="grid grid-cols-[60px_1fr_1fr_100px_100px] gap-3 items-center"
-          >
-            {/* Fuel badge */}
-            <span
-              className={`inline-flex items-center justify-center h-7 px-2 rounded-md text-xs font-bold border ${row.color}`}
-            >
-              {row.fuel}
-            </span>
-
-            {/* Opening stock */}
-            <Input
-              data-ocid={row.openOcid}
-              type="number"
-              step="0.01"
-              min="0"
-              value={row.tankOpen}
-              onChange={(e) => row.onOpenChange(e.target.value)}
-              className="font-mono"
-              placeholder="0.00"
-            />
-
-            {/* Closing stock */}
-            <Input
-              data-ocid={row.closeOcid}
-              type="number"
-              step="0.01"
-              min="0"
-              value={row.tankClose}
-              onChange={(e) => row.onCloseChange(e.target.value)}
-              className="font-mono"
-              placeholder="0.00"
-            />
-
-            {/* Tank sale = Opening − Closing */}
-            <div
-              className={`rounded-md px-3 py-2 font-mono text-sm font-semibold border text-center ${
-                row.tankSale < 0
-                  ? "bg-red-50 border-red-200 text-red-700"
-                  : "bg-slate-50 border-slate-200 text-slate-700"
-              }`}
-            >
-              {row.tankSale.toFixed(2)}
-            </div>
-
-            {/* Variance badge */}
-            <VarianceBadge variance={row.variance} />
-          </div>
-        ))}
-
-        {/* Info note */}
-        <div className="flex items-center gap-2 pt-1 border-t border-dashed border-slate-200">
-          <span className="text-xs text-muted-foreground">
-            <span className="font-semibold">Tank vs Nozzle:</span> Nozzle Sale −
-            Tank Sale.{" "}
-            <span className="text-emerald-600 font-semibold">
-              0.00 = matched
-            </span>
-            , <span className="text-emerald-600">+</span> = nozzle over tank,{" "}
-            <span className="text-red-500">−</span> = tank over nozzle.
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Expenses Section ─────────────────────────────────────
+// ─── ExpensesSection ──────────────────────────────────────
 const EXPENSE_TAB_COLORS = [
   {
     border: "border-slate-300",
     header: "bg-slate-100",
     badge: "bg-slate-200 text-slate-700",
+  },
+  {
+    border: "border-sky-200",
+    header: "bg-sky-50",
+    badge: "bg-sky-100 text-sky-700",
   },
   {
     border: "border-violet-200",
@@ -721,10 +553,10 @@ function ExpensesSection({
         </div>
         <div className="flex-1">
           <div className="text-white font-bold text-base tracking-wide">
-            EXPENSES / CASH
+            DEDUCTIONS
           </div>
           <div className="text-white/70 text-xs">
-            Cash Received, QR & Card Payments
+            Cash Received, Daily Pump Test, QR &amp; Card Payments
           </div>
         </div>
       </div>
@@ -848,35 +680,384 @@ function ExpensesSection({
   );
 }
 
+// ─── SummaryPanel ─────────────────────────────────────────
+interface SummaryPanelProps {
+  hsdGross: number;
+  msGross: number;
+  engineOilTotal: number;
+  totalGrossSale: number;
+  expensesTabs: ExpensesTabState[];
+  totalDeductions: number;
+  netCashSales: number;
+}
+
+function SummaryPanel({
+  hsdGross,
+  msGross,
+  engineOilTotal,
+  totalGrossSale,
+  expensesTabs,
+  totalDeductions,
+  netCashSales,
+}: SummaryPanelProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
+      data-ocid="summary.card"
+      className="rounded-xl overflow-hidden border-2 border-sky-200 bg-white shadow-sm"
+    >
+      <div className="px-5 py-3.5 bg-sky-600 flex items-center gap-3">
+        <TrendingUp className="w-5 h-5 text-white" />
+        <div className="flex-1">
+          <div className="text-white font-bold text-base tracking-wide">
+            SUMMARY
+          </div>
+          <div className="text-white/70 text-xs">
+            Total Gross Sale − Total Deductions = Net Cash Sales
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* Gross sales breakdown */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-1">
+            Gross Sales
+          </p>
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-blue-50 border border-blue-100">
+            <span className="text-sm text-foreground/70">HSD Gross Sale</span>
+            <span className="font-mono font-semibold text-sm text-blue-700">
+              {formatINR(hsdGross)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-50 border border-emerald-100">
+            <span className="text-sm text-foreground/70">MS Gross Sale</span>
+            <span className="font-mono font-semibold text-sm text-emerald-700">
+              {formatINR(msGross)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-amber-50 border border-amber-100">
+            <span className="text-sm text-foreground/70">Engine Oil Total</span>
+            <span className="font-mono font-semibold text-sm text-amber-700">
+              {formatINR(engineOilTotal)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-sky-600 border border-sky-700">
+            <span className="text-sm font-bold text-white uppercase tracking-wide">
+              Total Gross Sale
+            </span>
+            <span className="font-mono font-bold text-base text-white">
+              {formatINR(totalGrossSale)}
+            </span>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Deductions breakdown */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-1">
+            Deductions
+          </p>
+          {expensesTabs.map((tab) => {
+            const tabTotal = tab.rows.reduce((s, r) => s + toNum(r.amount), 0);
+            return (
+              <div
+                key={tab.tabName}
+                className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-slate-50 border border-slate-100"
+              >
+                <span className="text-sm text-foreground/70">
+                  {tab.tabName}
+                </span>
+                <span className="font-mono font-semibold text-sm text-slate-700">
+                  {formatINR(tabTotal)}
+                </span>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-700 border border-slate-800">
+            <span className="text-sm font-bold text-white uppercase tracking-wide">
+              Total Deductions
+            </span>
+            <span className="font-mono font-bold text-base text-white">
+              {formatINR(totalDeductions)}
+            </span>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Net Cash Sales */}
+        <motion.div
+          key={netCashSales}
+          animate={{ scale: [1, 1.015, 1] }}
+          transition={{ duration: 0.25 }}
+          data-ocid="summary.net_cash.card"
+          className={`rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-2 ${
+            netCashSales >= 0
+              ? "bg-emerald-50 border-emerald-300"
+              : "bg-red-50 border-red-300"
+          }`}
+        >
+          <div>
+            <div className="text-xs font-bold uppercase tracking-widest text-foreground/50 mb-1">
+              Net Cash Sales
+            </div>
+            <div className="text-sm text-foreground/60">
+              Total Gross Sale − Total Deductions
+            </div>
+          </div>
+          <div className="flex flex-col sm:items-end gap-1">
+            <div
+              className={`font-mono font-bold text-3xl sm:text-4xl tracking-tight ${
+                netCashSales >= 0 ? "text-emerald-600" : "text-red-600"
+              }`}
+            >
+              {formatINR(netCashSales)}
+            </div>
+            <span
+              className={`text-xs font-bold uppercase tracking-widest ${
+                netCashSales >= 0 ? "text-emerald-600" : "text-red-600"
+              }`}
+            >
+              {netCashSales >= 0 ? "Surplus" : "Deficit"}
+            </span>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── CashDenominationCalculator ───────────────────────────
+interface CashDenomCalcProps {
+  denoms: Record<number, DenomState>;
+  onDenomChange: (denomination: number, count: string) => void;
+  netCashSales: number;
+}
+
+function CashDenominationCalculator({
+  denoms,
+  onDenomChange,
+  netCashSales,
+}: CashDenomCalcProps) {
+  const notesTotal = NOTES.reduce(
+    (s, n) => s + n * toNum(denoms[n]?.count ?? ""),
+    0,
+  );
+  const coinsTotal = COINS.reduce(
+    (s, c) => s + c * toNum(denoms[c]?.count ?? ""),
+    0,
+  );
+  const totalCash = notesTotal + coinsTotal;
+  const diff = totalCash - netCashSales;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.25, ease: "easeOut" }}
+      data-ocid="cash-calc.card"
+      className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white shadow-sm"
+    >
+      <div className="px-5 py-3.5 bg-slate-700 flex items-center gap-3">
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20">
+          <Coins className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="text-white font-bold text-base tracking-wide">
+            CASH DENOMINATION CALCULATOR
+          </div>
+          <div className="text-white/70 text-xs">
+            Count notes &amp; coins to verify cash
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {/* Notes section */}
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-foreground/50">
+            Notes
+          </p>
+          <div className="grid grid-cols-[auto_1fr_auto] gap-3 items-center text-xs font-bold uppercase tracking-wider text-foreground/40 px-1">
+            <span className="w-16">Value</span>
+            <span>Count</span>
+            <span className="w-28 text-right">Amount</span>
+          </div>
+          {NOTES.map((note) => {
+            const count = toNum(denoms[note]?.count ?? "");
+            const subtotal = note * count;
+            return (
+              <div
+                key={note}
+                className="grid grid-cols-[auto_1fr_auto] gap-3 items-center"
+              >
+                <div className="w-16 text-sm font-bold font-mono text-foreground/80 bg-slate-100 rounded-md px-2 py-1.5 text-center border border-slate-200">
+                  ₹{note}
+                </div>
+                <Input
+                  data-ocid={`cash-calc.note-${note}.input`}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={denoms[note]?.count ?? ""}
+                  onChange={(e) => onDenomChange(note, e.target.value)}
+                  placeholder="0"
+                  className="font-mono text-sm"
+                />
+                <div className="w-28 font-mono text-sm font-semibold text-right text-foreground/70 bg-slate-50 rounded-md px-2 py-2 border border-slate-200">
+                  {formatINR(subtotal)}
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex justify-end">
+            <div className="text-xs text-muted-foreground font-semibold">
+              Notes subtotal:{" "}
+              <span className="font-mono text-foreground">
+                {formatINR(notesTotal)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Coins section */}
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-foreground/50">
+            Coins
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {COINS.map((coin) => {
+              const count = toNum(denoms[coin]?.count ?? "");
+              const subtotal = coin * count;
+              return (
+                <div key={coin} className="space-y-1.5">
+                  <div className="text-xs font-bold text-foreground/60 text-center">
+                    ₹{coin} ×
+                  </div>
+                  <Input
+                    data-ocid={`cash-calc.coin-${coin}.input`}
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={denoms[coin]?.count ?? ""}
+                    onChange={(e) => onDenomChange(coin, e.target.value)}
+                    placeholder="0"
+                    className="font-mono text-sm text-center"
+                  />
+                  <div className="text-xs font-mono text-center text-foreground/60">
+                    = {formatINR(subtotal)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end">
+            <div className="text-xs text-muted-foreground font-semibold">
+              Coins subtotal:{" "}
+              <span className="font-mono text-foreground">
+                {formatINR(coinsTotal)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Total Cash */}
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+              Total Cash
+            </span>
+            <span className="font-mono font-bold text-xl text-foreground">
+              {formatINR(totalCash)}
+            </span>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-foreground/60">Net Cash Sales</span>
+            <span className="font-mono font-semibold text-foreground/70">
+              {formatINR(netCashSales)}
+            </span>
+          </div>
+          <Separator />
+          <motion.div
+            key={diff}
+            animate={{ scale: [1, 1.01, 1] }}
+            transition={{ duration: 0.2 }}
+            data-ocid="cash-calc.result"
+            className={`rounded-lg px-4 py-3 flex items-center justify-between border-2 ${
+              Math.abs(diff) < 0.01
+                ? "bg-slate-100 border-slate-300"
+                : diff > 0
+                  ? "bg-emerald-50 border-emerald-300"
+                  : "bg-red-50 border-red-300"
+            }`}
+          >
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-foreground/50">
+                Total Cash − Net Cash Sales
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {Math.abs(diff) < 0.01
+                  ? "Exactly balanced"
+                  : diff > 0
+                    ? "Cash excess (surplus)"
+                    : "Cash shortfall (deficit)"}
+              </div>
+            </div>
+            <div
+              className={`font-mono font-bold text-2xl ${
+                Math.abs(diff) < 0.01
+                  ? "text-foreground/50"
+                  : diff > 0
+                    ? "text-emerald-600"
+                    : "text-red-600"
+              }`}
+            >
+              {diff >= 0 ? "+" : ""}
+              {formatINR(diff)}
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────
 export default function App() {
   // ─ Date state
   const [date, setDate] = useState(todayDate());
 
-  // ─ Fuel states (4 nozzles each)
+  // ─ HSD state (2 nozzles)
   const [hsdNozzles, setHsdNozzles] = useState<NozzleState[]>(emptyNozzles());
-  const [msNozzles, setMsNozzles] = useState<NozzleState[]>(emptyNozzles());
   const [hsdPrice, setHsdPrice] = useState("");
-  const [msPrice, setMsPrice] = useState("");
   const [hsdTesting, setHsdTesting] = useState("");
+
+  // ─ MS state (2 nozzles)
+  const [msNozzles, setMsNozzles] = useState<NozzleState[]>(emptyNozzles());
+  const [msPrice, setMsPrice] = useState("");
   const [msTesting, setMsTesting] = useState("");
 
   // ─ Engine oil
   const [engineOilRows, setEngineOilRows] = useState<EngineOilRowState[]>([]);
 
-  // ─ Expenses
+  // ─ Expenses/deductions (4 fixed tabs)
   const [expensesTabs, setExpensesTabs] = useState<ExpensesTabState[]>(
     emptyExpenseTabs(),
   );
 
-  // ─ Balance cash
-  const [prevDayBalance, setPrevDayBalance] = useState("");
-
-  // ─ Tank stock
-  const [hsdTankOpen, setHsdTankOpen] = useState("");
-  const [hsdTankClose, setHsdTankClose] = useState("");
-  const [msTankOpen, setMsTankOpen] = useState("");
-  const [msTankClose, setMsTankClose] = useState("");
+  // ─ Cash denominations
+  const [denoms, setDenoms] = useState<Record<number, DenomState>>(
+    emptyDenoms(),
+  );
 
   // ─ UI
   const [showHistory, setShowHistory] = useState(false);
@@ -891,7 +1072,7 @@ export default function App() {
     if (savedReport) {
       // HSD
       const hNozzles = emptyNozzles();
-      for (let i = 0; i < Math.min(savedReport.hsdNozzles.length, 4); i++) {
+      for (let i = 0; i < Math.min(savedReport.hsdNozzles.length, 2); i++) {
         hNozzles[i] = {
           open:
             savedReport.hsdNozzles[i].openReading > 0
@@ -913,7 +1094,7 @@ export default function App() {
 
       // MS
       const mNozzles = emptyNozzles();
-      for (let i = 0; i < Math.min(savedReport.msNozzles.length, 4); i++) {
+      for (let i = 0; i < Math.min(savedReport.msNozzles.length, 2); i++) {
         mNozzles[i] = {
           open:
             savedReport.msNozzles[i].openReading > 0
@@ -941,53 +1122,54 @@ export default function App() {
         })),
       );
 
-      // Expenses tabs
-      if (savedReport.expensesTabs.length > 0) {
-        setExpensesTabs(
-          savedReport.expensesTabs.map((tab) => ({
-            tabName: tab.tabName,
-            rows: tab.rows.map((r) => ({
-              id: uid(),
-              label: r.expenseLabel,
-              amount: r.amount > 0 ? r.amount.toString() : "",
-            })),
-          })),
-        );
+      // Expenses tabs (4 fixed)
+      const FIXED_TABS = [
+        "Cash Received",
+        "Daily Pump Test",
+        "QR Payments",
+        "Card Payments",
+      ];
+      if (savedReport.deductionsTabs && savedReport.deductionsTabs.length > 0) {
+        const mapped: ExpensesTabState[] = FIXED_TABS.map((fixedName) => {
+          const saved = savedReport.deductionsTabs.find(
+            (t) => t.tabName === fixedName,
+          );
+          return {
+            tabName: fixedName,
+            rows: saved
+              ? saved.rows.map((r) => ({
+                  id: uid(),
+                  label: r.expenseLabel,
+                  amount: r.amount > 0 ? r.amount.toString() : "",
+                }))
+              : [],
+          };
+        });
+        setExpensesTabs(mapped);
       } else {
         setExpensesTabs(emptyExpenseTabs());
       }
 
-      // Balance
-      setPrevDayBalance(
-        savedReport.previousDayBalanceCash !== 0 &&
-          savedReport.previousDayBalanceCash !== null
-          ? savedReport.previousDayBalanceCash.toString()
-          : "",
-      );
-
-      // Tank stock — stored in notes as JSON
+      // Denomination calculator — stored in notes as JSON
       try {
-        const tankData = JSON.parse(savedReport.notes || "{}");
-        setHsdTankOpen(
-          tankData.hsdTankOpen > 0 ? tankData.hsdTankOpen.toString() : "",
-        );
-        setHsdTankClose(
-          tankData.hsdTankClose > 0 ? tankData.hsdTankClose.toString() : "",
-        );
-        setMsTankOpen(
-          tankData.msTankOpen > 0 ? tankData.msTankOpen.toString() : "",
-        );
-        setMsTankClose(
-          tankData.msTankClose > 0 ? tankData.msTankClose.toString() : "",
-        );
+        const extra = JSON.parse(savedReport.notes || "{}");
+        if (extra.denoms) {
+          const loaded = emptyDenoms();
+          for (const key of Object.keys(extra.denoms)) {
+            const k = Number(key);
+            if (loaded[k] !== undefined) {
+              loaded[k] = { count: extra.denoms[key] };
+            }
+          }
+          setDenoms(loaded);
+        } else {
+          setDenoms(emptyDenoms());
+        }
       } catch {
-        setHsdTankOpen("");
-        setHsdTankClose("");
-        setMsTankOpen("");
-        setMsTankClose("");
+        setDenoms(emptyDenoms());
       }
     } else if (savedReport === null && !isLoadingReport) {
-      // No saved data for this date — clear
+      // No saved data for this date — clear everything
       setHsdNozzles(emptyNozzles());
       setMsNozzles(emptyNozzles());
       setHsdPrice("");
@@ -996,11 +1178,7 @@ export default function App() {
       setMsTesting("");
       setEngineOilRows([]);
       setExpensesTabs(emptyExpenseTabs());
-      setPrevDayBalance("");
-      setHsdTankOpen("");
-      setHsdTankClose("");
-      setMsTankOpen("");
-      setMsTankClose("");
+      setDenoms(emptyDenoms());
     }
   }, [savedReport, isLoadingReport]);
 
@@ -1023,7 +1201,7 @@ export default function App() {
 
   const totalGrossSale = hsdGross + msGross + engineOilTotal;
 
-  const totalExpenses = useMemo(
+  const totalDeductions = useMemo(
     () =>
       expensesTabs.reduce(
         (s, tab) => s + tab.rows.reduce((ts, r) => ts + toNum(r.amount), 0),
@@ -1032,9 +1210,7 @@ export default function App() {
     [expensesTabs],
   );
 
-  const prevBalance = toNum(prevDayBalance);
-  const grossPlusBalance = totalGrossSale + prevBalance;
-  const balanceCash = totalExpenses - grossPlusBalance;
+  const netCashSales = totalGrossSale - totalDeductions;
 
   // ─── Handlers: HSD nozzles ────────────────────────────
   const updateHsdNozzle = useCallback(
@@ -1119,16 +1295,25 @@ export default function App() {
     [],
   );
 
+  // ─── Handlers: Denominations ──────────────────────────
+  const updateDenom = useCallback((denomination: number, count: string) => {
+    setDenoms((prev) => ({
+      ...prev,
+      [denomination]: { count },
+    }));
+  }, []);
+
   // ─── Save handler ────────────────────────────────────
   const handleSave = useCallback(async () => {
+    // Serialize denom counts for storage in notes field
+    const denomData: Record<number, string> = {};
+    for (const k of [...NOTES, ...COINS]) {
+      denomData[k] = denoms[k]?.count ?? "";
+    }
+
     const report: DailyReport = {
       date,
-      notes: JSON.stringify({
-        hsdTankOpen: toNum(hsdTankOpen),
-        hsdTankClose: toNum(hsdTankClose),
-        msTankOpen: toNum(msTankOpen),
-        msTankClose: toNum(msTankClose),
-      }),
+      notes: JSON.stringify({ denoms: denomData }),
       hsdPrice: toNum(hsdPrice),
       hsdTesting: toNum(hsdTesting),
       hsdNozzles: hsdNozzles.map((n) => ({
@@ -1146,14 +1331,13 @@ export default function App() {
         quantity: toNum(r.quantity),
         price: toNum(r.price),
       })),
-      expensesTabs: expensesTabs.map((tab) => ({
+      deductionsTabs: expensesTabs.map((tab) => ({
         tabName: tab.tabName,
         rows: tab.rows.map((r) => ({
           expenseLabel: r.label,
           amount: toNum(r.amount),
         })),
       })),
-      previousDayBalanceCash: toNum(prevDayBalance),
     };
 
     try {
@@ -1172,274 +1356,143 @@ export default function App() {
     msNozzles,
     engineOilRows,
     expensesTabs,
-    prevDayBalance,
-    hsdTankOpen,
-    hsdTankClose,
-    msTankOpen,
-    msTankClose,
+    denoms,
     saveReportMutation,
   ]);
 
   // ─── History handler ─────────────────────────────────
-  const handleLoadFromHistory = useCallback(async (historyDate: string) => {
+  const handleLoadFromHistory = useCallback((historyDate: string) => {
     setDate(historyDate);
     setShowHistory(false);
   }, []);
 
-  // ─── Word document generation ─────────────────────────
-  const handleDownload = useCallback(async () => {
-    const makeRow = (label: string, value: string) =>
-      new TableRow({
-        children: [
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun({ text: label, bold: true })],
-              }),
-            ],
-            width: { size: 50, type: WidthType.PERCENTAGE },
-          }),
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun(value)] })],
-            width: { size: 50, type: WidthType.PERCENTAGE },
-          }),
-        ],
-      });
+  // ─── Word document generation (RTF format, no lib needed) ──
+  const handleDownload = useCallback(() => {
+    // RTF helpers
+    const h1 = (text: string) => `{\\pard\\qc\\b\\fs36 ${text}\\par}\n`;
+    const h2 = (text: string) => `{\\pard\\b\\fs28 ${text}\\par}\n`;
+    const h3 = (text: string) => `{\\pard\\b\\fs24 ${text}\\par}\n`;
+    const para = (text: string) => `{\\pard ${text}\\par}\n`;
+    const tableRow = (label: string, value: string) =>
+      `{\\trowd\\trgaph108\\trleft-108\\cellx4700\\cellx9200\\pard\\intbl\\b ${label}\\cell\\pard\\intbl ${value}\\cell\\row}\n`;
+    const tableHeader4 = (cols: string[]) =>
+      `{\\trowd\\trgaph108\\trleft-108\\cellx2300\\cellx4600\\cellx6900\\cellx9200\\pard\\intbl\\b ${cols[0]}\\cell\\pard\\intbl\\b ${cols[1]}\\cell\\pard\\intbl\\b ${cols[2]}\\cell\\pard\\intbl\\b ${cols[3]}\\cell\\row}\n`;
+    const tableRow4 = (cols: string[]) =>
+      `{\\trowd\\trgaph108\\trleft-108\\cellx2300\\cellx4600\\cellx6900\\cellx9200\\pard\\intbl ${cols[0]}\\cell\\pard\\intbl ${cols[1]}\\cell\\pard\\intbl ${cols[2]}\\cell\\pard\\intbl ${cols[3]}\\cell\\row}\n`;
 
-    const hsdRows: TableRow[] = [
-      makeRow("Price per Litre", `₹${hsdPrice || "0"}`),
-      ...hsdNozzles.flatMap((n, i) => [
-        makeRow(`Nozzle ${i + 1} Opening`, n.open || "0"),
-        makeRow(`Nozzle ${i + 1} Closing`, n.close || "0"),
-        makeRow(`Nozzle ${i + 1} Volume (L)`, hsdVolumes[i].toFixed(2)),
-      ]),
-      makeRow("Testing (L)", hsdTesting || "0"),
-      makeRow("Total Volume (L)", hsdTotalVolume.toFixed(2)),
-      makeRow("Total Sale (L)", hsdTotalSale.toFixed(2)),
-      makeRow("Gross Sale", formatINR(hsdGross)),
-    ];
+    const totalCashDoc = [...NOTES, ...COINS].reduce(
+      (s, k) => s + k * toNum(denoms[k]?.count ?? ""),
+      0,
+    );
+    const diffDoc = totalCashDoc - netCashSales;
 
-    const msRows: TableRow[] = [
-      makeRow("Price per Litre", `₹${msPrice || "0"}`),
-      ...msNozzles.flatMap((n, i) => [
-        makeRow(`Nozzle ${i + 1} Opening`, n.open || "0"),
-        makeRow(`Nozzle ${i + 1} Closing`, n.close || "0"),
-        makeRow(`Nozzle ${i + 1} Volume (L)`, msVolumes[i].toFixed(2)),
-      ]),
-      makeRow("Testing (L)", msTesting || "0"),
-      makeRow("Total Volume (L)", msTotalVolume.toFixed(2)),
-      makeRow("Total Sale (L)", msTotalSale.toFixed(2)),
-      makeRow("Gross Sale", formatINR(msGross)),
-    ];
+    let rtf = "{\\rtf1\\ansi\\deff0\n";
+    rtf += "{\\fonttbl{\\f0\\fswiss Arial;}}\n";
+    rtf += "{\\colortbl;\\red0\\green0\\blue0;}\n";
+    rtf += "\\f0\\fs22\n";
 
-    const engineOilTableRows: TableRow[] = [
-      new TableRow({
-        tableHeader: true,
-        children: ["Product", "Qty", "Price", "Total"].map(
-          (h) =>
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: h, bold: true })],
-                }),
-              ],
-              width: { size: 25, type: WidthType.PERCENTAGE },
-            }),
-        ),
-      }),
-      ...engineOilRows.map(
-        (r) =>
-          new TableRow({
-            children: [
-              r.name,
-              r.quantity,
-              `₹${r.price}`,
-              formatINR(toNum(r.quantity) * toNum(r.price)),
-            ].map(
-              (v) =>
-                new TableCell({
-                  children: [
-                    new Paragraph({ children: [new TextRun(v || "—")] }),
-                  ],
-                  width: { size: 25, type: WidthType.PERCENTAGE },
-                }),
-            ),
-          }),
-      ),
-    ];
+    rtf += h1("PUMP DAILY SALES REPORT");
+    rtf += para(`Date: ${date}`);
+    rtf += para("");
 
-    const expenseDocBlocks: (Paragraph | Table)[] = expensesTabs.flatMap(
-      (tab) => [
-        new Paragraph({
-          heading: HeadingLevel.HEADING_3,
-          children: [new TextRun({ text: tab.tabName, bold: true })],
-        }),
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows:
-            tab.rows.length > 0
-              ? [
-                  new TableRow({
-                    tableHeader: true,
-                    children: ["Description", "Amount"].map(
-                      (h) =>
-                        new TableCell({
-                          children: [
-                            new Paragraph({
-                              children: [new TextRun({ text: h, bold: true })],
-                            }),
-                          ],
-                          width: { size: 50, type: WidthType.PERCENTAGE },
-                        }),
-                    ),
-                  }),
-                  ...tab.rows.map(
-                    (r) =>
-                      new TableRow({
-                        children: [r.label, formatINR(toNum(r.amount))].map(
-                          (v) =>
-                            new TableCell({
-                              children: [
-                                new Paragraph({
-                                  children: [new TextRun(v || "—")],
-                                }),
-                              ],
-                              width: { size: 50, type: WidthType.PERCENTAGE },
-                            }),
-                        ),
-                      }),
-                  ),
-                ]
-              : [
-                  new TableRow({
-                    children: [
-                      new TableCell({
-                        children: [
-                          new Paragraph({
-                            children: [new TextRun("No entries")],
-                          }),
-                        ],
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                      }),
-                    ],
-                  }),
-                ],
-        }),
-        new Paragraph({ children: [new TextRun("")] }),
-      ],
+    rtf += h2("HSD — High Speed Diesel");
+    rtf += tableRow("Price per Litre", `Rs.${hsdPrice || "0"}`);
+    for (let i = 0; i < hsdNozzles.length; i++) {
+      rtf += tableRow(`Nozzle ${i + 1} Opening`, hsdNozzles[i].open || "0");
+      rtf += tableRow(`Nozzle ${i + 1} Closing`, hsdNozzles[i].close || "0");
+      rtf += tableRow(`Nozzle ${i + 1} Volume (L)`, hsdVolumes[i].toFixed(2));
+    }
+    rtf += tableRow("Testing (L)", hsdTesting || "0");
+    rtf += tableRow("Total Volume (L)", hsdTotalVolume.toFixed(2));
+    rtf += tableRow("Total Sale (L)", hsdTotalSale.toFixed(2));
+    rtf += tableRow("Gross Sale", formatINR(hsdGross));
+    rtf += para("");
+
+    rtf += h2("MS — Motor Spirit / Petrol");
+    rtf += tableRow("Price per Litre", `Rs.${msPrice || "0"}`);
+    for (let i = 0; i < msNozzles.length; i++) {
+      rtf += tableRow(`Nozzle ${i + 1} Opening`, msNozzles[i].open || "0");
+      rtf += tableRow(`Nozzle ${i + 1} Closing`, msNozzles[i].close || "0");
+      rtf += tableRow(`Nozzle ${i + 1} Volume (L)`, msVolumes[i].toFixed(2));
+    }
+    rtf += tableRow("Testing (L)", msTesting || "0");
+    rtf += tableRow("Total Volume (L)", msTotalVolume.toFixed(2));
+    rtf += tableRow("Total Sale (L)", msTotalSale.toFixed(2));
+    rtf += tableRow("Gross Sale", formatINR(msGross));
+    rtf += para("");
+
+    rtf += h2("Engine Oil");
+    if (engineOilRows.length > 0) {
+      rtf += tableHeader4(["Product", "Qty", "Price", "Total"]);
+      for (const r of engineOilRows) {
+        rtf += tableRow4([
+          r.name || "—",
+          r.quantity || "0",
+          `Rs.${r.price || "0"}`,
+          formatINR(toNum(r.quantity) * toNum(r.price)),
+        ]);
+      }
+      rtf += tableRow("Engine Oil Total", formatINR(engineOilTotal));
+    } else {
+      rtf += para("No engine oil products.");
+    }
+    rtf += para("");
+
+    rtf += h2("Total Gross Sale");
+    rtf += tableRow("HSD Gross Sale", formatINR(hsdGross));
+    rtf += tableRow("MS Gross Sale", formatINR(msGross));
+    rtf += tableRow("Engine Oil Total", formatINR(engineOilTotal));
+    rtf += tableRow("TOTAL GROSS SALE", formatINR(totalGrossSale));
+    rtf += para("");
+
+    rtf += h2("Deductions");
+    for (const tab of expensesTabs) {
+      const tabTotal = tab.rows.reduce((s, r) => s + toNum(r.amount), 0);
+      rtf += h3(tab.tabName);
+      if (tab.rows.length > 0) {
+        for (const r of tab.rows) {
+          rtf += tableRow(r.label || "—", formatINR(toNum(r.amount)));
+        }
+        rtf += tableRow("Tab Total", formatINR(tabTotal));
+      } else {
+        rtf += para("No entries.");
+      }
+    }
+    rtf += tableRow("TOTAL DEDUCTIONS", formatINR(totalDeductions));
+    rtf += para("");
+
+    rtf += h2("Net Cash Sales");
+    rtf += tableRow("Total Gross Sale", formatINR(totalGrossSale));
+    rtf += tableRow("Total Deductions", formatINR(totalDeductions));
+    rtf += tableRow("NET CASH SALES", formatINR(netCashSales));
+    rtf += para("");
+
+    rtf += h2("Cash Denomination Calculator");
+    rtf += h3("Notes");
+    for (const n of NOTES) {
+      rtf += tableRow(
+        `Rs.${n} x ${denoms[n]?.count || "0"}`,
+        formatINR(n * toNum(denoms[n]?.count ?? "")),
+      );
+    }
+    rtf += h3("Coins");
+    for (const c of COINS) {
+      rtf += tableRow(
+        `Rs.${c} x ${denoms[c]?.count || "0"}`,
+        formatINR(c * toNum(denoms[c]?.count ?? "")),
+      );
+    }
+    rtf += tableRow("Total Cash", formatINR(totalCashDoc));
+    rtf += tableRow("Net Cash Sales", formatINR(netCashSales));
+    rtf += tableRow(
+      "Difference (Total Cash - Net Cash Sales)",
+      `${diffDoc >= 0 ? "+" : ""}${formatINR(diffDoc)}`,
     );
 
-    const docChildren: (Paragraph | Table)[] = [
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.CENTER,
-        children: [
-          new TextRun({
-            text: "BUNK DAILY SALES REPORT",
-            bold: true,
-            size: 32,
-          }),
-        ],
-      }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: `Date: ${date}`, size: 24 })],
-      }),
-      new Paragraph({ children: [new TextRun("")] }),
+    rtf += "}";
 
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [
-          new TextRun({ text: "HSD — High Speed Diesel", bold: true }),
-        ],
-      }),
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: hsdRows,
-      }),
-      new Paragraph({ children: [new TextRun("")] }),
-
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [
-          new TextRun({ text: "MS — Motor Spirit / Petrol", bold: true }),
-        ],
-      }),
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: msRows,
-      }),
-      new Paragraph({ children: [new TextRun("")] }),
-
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: "Engine Oil", bold: true })],
-      }),
-      ...(engineOilRows.length > 0
-        ? [
-            new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              rows: engineOilTableRows,
-            }),
-          ]
-        : [
-            new Paragraph({
-              children: [new TextRun("No engine oil products.")],
-            }),
-          ]),
-      new Paragraph({ children: [new TextRun("")] }),
-
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: "Total Gross Sale", bold: true })],
-      }),
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [
-          makeRow("HSD Gross Sale", formatINR(hsdGross)),
-          makeRow("MS Gross Sale", formatINR(msGross)),
-          makeRow("Engine Oil Total", formatINR(engineOilTotal)),
-          makeRow("TOTAL GROSS SALE", formatINR(totalGrossSale)),
-        ],
-      }),
-      new Paragraph({ children: [new TextRun("")] }),
-
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: "Expenses / Cash", bold: true })],
-      }),
-      ...expenseDocBlocks,
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [makeRow("TOTAL EXPENSES", formatINR(totalExpenses))],
-      }),
-      new Paragraph({ children: [new TextRun("")] }),
-
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: "Balance Cash", bold: true })],
-      }),
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [
-          makeRow("Total Expenses", formatINR(totalExpenses)),
-          makeRow("Total Gross Sale", formatINR(totalGrossSale)),
-          makeRow("Previous Day Balance Cash", formatINR(prevBalance)),
-          makeRow("Gross + Balance", formatINR(grossPlusBalance)),
-          makeRow(
-            "BALANCE CASH (Expenses − Gross+Balance)",
-            formatINR(balanceCash),
-          ),
-        ],
-      }),
-    ];
-
-    const doc = new Document({
-      sections: [{ children: docChildren }],
-    });
-
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `DSR_Report_${date}.docx`);
+    const blob = new Blob([rtf], { type: "application/rtf" });
+    downloadBlob(blob, `BPCL_Report_${date}.doc`);
     toast.success("Report downloaded as Word document.");
   }, [
     date,
@@ -1461,10 +1514,9 @@ export default function App() {
     engineOilTotal,
     totalGrossSale,
     expensesTabs,
-    totalExpenses,
-    prevBalance,
-    grossPlusBalance,
-    balanceCash,
+    totalDeductions,
+    netCashSales,
+    denoms,
   ]);
 
   // ─── Render ──────────────────────────────────────────
@@ -1482,10 +1534,10 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-white font-bold text-sm sm:text-base tracking-tight leading-none">
-                BUNK DAILY SALES REPORT
+                PUMP DAILY SALES REPORT
               </h1>
               <p className="text-white/60 text-xs hidden sm:block">
-                DSR — Daily Sales Record
+                Petrol Bunk Daily Sales Record
               </p>
             </div>
           </div>
@@ -1555,7 +1607,7 @@ export default function App() {
 
       {/* ── Main Content ──────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6 print-container">
-        {/* Loading overlay */}
+        {/* Loading state */}
         {isLoadingReport && (
           <div
             data-ocid="app.loading_state"
@@ -1566,21 +1618,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ── HSD & MS Tanks Section ──────────────────── */}
-        <TankStockSection
-          hsdTankOpen={hsdTankOpen}
-          hsdTankClose={hsdTankClose}
-          msTankOpen={msTankOpen}
-          msTankClose={msTankClose}
-          hsdNozzleSaleLitres={hsdTotalSale}
-          msNozzleSaleLitres={msTotalSale}
-          onHsdTankOpenChange={setHsdTankOpen}
-          onHsdTankCloseChange={setHsdTankClose}
-          onMsTankOpenChange={setMsTankOpen}
-          onMsTankCloseChange={setMsTankClose}
-        />
-
-        {/* ── HSD Section ─────────────────────────────── */}
+        {/* ── HSD Card (first/top) ─────────────────────── */}
         <NozzleSection
           fuelType="hsd"
           nozzles={hsdNozzles}
@@ -1591,7 +1629,7 @@ export default function App() {
           onTestingChange={setHsdTesting}
         />
 
-        {/* ── MS Section ──────────────────────────────── */}
+        {/* ── MS Card (below HSD) ──────────────────────── */}
         <NozzleSection
           fuelType="ms"
           nozzles={msNozzles}
@@ -1610,49 +1648,7 @@ export default function App() {
           onChange={updateEngineOilRow}
         />
 
-        {/* ── Total Gross Sale ────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
-          data-ocid="summary.total_gross.card"
-          className="rounded-xl border-2 border-sky-200 bg-gradient-to-r from-sky-50 to-blue-50 shadow-sm overflow-hidden"
-        >
-          <div className="px-5 py-3.5 bg-sky-600 flex items-center gap-3">
-            <TrendingUp className="w-5 h-5 text-white" />
-            <h2 className="text-white font-bold text-base tracking-wide">
-              TOTAL GROSS SALE
-            </h2>
-          </div>
-          <div className="p-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: "HSD Gross", value: hsdGross },
-                { label: "MS Gross", value: msGross },
-                { label: "Engine Oil", value: engineOilTotal },
-                { label: "TOTAL", value: totalGrossSale, highlight: true },
-              ].map(({ label, value, highlight }) => (
-                <div
-                  key={label}
-                  className={`rounded-lg p-3 ${highlight ? "bg-sky-600 text-white" : "bg-white border border-sky-100"}`}
-                >
-                  <div
-                    className={`text-xs font-bold uppercase tracking-wider mb-1 ${highlight ? "text-sky-100" : "text-foreground/50"}`}
-                  >
-                    {label}
-                  </div>
-                  <div
-                    className={`font-mono font-bold text-sm sm:text-base ${highlight ? "text-white" : "text-foreground"}`}
-                  >
-                    {formatINR(value)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* ── Expenses ────────────────────────────────── */}
+        {/* ── Deductions ──────────────────────────────── */}
         <ExpensesSection
           tabs={expensesTabs}
           onAddRow={addExpenseRow}
@@ -1660,179 +1656,23 @@ export default function App() {
           onChangeRow={updateExpenseRow}
         />
 
-        {/* ── Total Expenses summary ──────────────────── */}
-        <div className="flex justify-end">
-          <div className="bg-slate-100 border border-slate-200 rounded-lg px-5 py-3 flex items-center gap-4">
-            <span className="text-sm font-bold text-foreground/60 uppercase tracking-wide">
-              Total Expenses
-            </span>
-            <span className="font-mono font-bold text-lg text-slate-700">
-              {formatINR(totalExpenses)}
-            </span>
-          </div>
-        </div>
+        {/* ── Summary ─────────────────────────────────── */}
+        <SummaryPanel
+          hsdGross={hsdGross}
+          msGross={msGross}
+          engineOilTotal={engineOilTotal}
+          totalGrossSale={totalGrossSale}
+          expensesTabs={expensesTabs}
+          totalDeductions={totalDeductions}
+          netCashSales={netCashSales}
+        />
 
-        {/* ── Balance Cash ────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.25, ease: "easeOut" }}
-          data-ocid="balance.card"
-          className="rounded-xl border-2 border-slate-200 bg-white shadow-sm overflow-hidden"
-        >
-          <div className="px-5 py-3.5 bg-slate-700 flex items-center gap-3">
-            <Wallet className="w-5 h-5 text-white" />
-            <h2 className="text-white font-bold text-base tracking-wide">
-              BALANCE CASH
-            </h2>
-          </div>
-
-          <div className="p-5 space-y-5">
-            {/* Previous day balance input */}
-            <div className="flex items-center gap-4">
-              <Label className="text-sm font-semibold text-foreground/70 shrink-0">
-                Previous Day Balance Cash (₹)
-              </Label>
-              <div className="relative flex-1 max-w-[220px]">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-mono text-muted-foreground">
-                  ₹
-                </span>
-                <Input
-                  data-ocid="balance.prev_day.input"
-                  type="number"
-                  step="0.01"
-                  value={prevDayBalance}
-                  onChange={(e) => setPrevDayBalance(e.target.value)}
-                  placeholder="0.00 (can be negative)"
-                  className="pl-7 font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Formula breakdown */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
-              {/* Row 1: Total Expenses */}
-              <div className="space-y-1 text-center">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total Expenses / Cash
-                </div>
-                <div className="font-mono font-bold text-base text-destructive">
-                  {formatINR(totalExpenses)}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Row 2: Gross Sale +/- Balance */}
-              <div className="flex items-center justify-center gap-2 flex-wrap">
-                <Minus className="w-4 h-4 text-slate-500 shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  (
-                </span>
-                <div className="space-y-0.5 text-center">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Gross Sale
-                  </div>
-                  <div className="font-mono font-bold text-base text-foreground">
-                    {formatINR(totalGrossSale)}
-                  </div>
-                </div>
-                <div
-                  className={`flex items-center gap-1.5 ${prevBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}
-                >
-                  {prevBalance >= 0 ? (
-                    <Plus className="w-4 h-4" />
-                  ) : (
-                    <Minus className="w-4 h-4" />
-                  )}
-                  <div className="text-center">
-                    <div className="text-xs font-semibold uppercase tracking-wider">
-                      Balance Cash
-                    </div>
-                    <div className="font-mono font-bold text-base">
-                      {formatINR(Math.abs(prevBalance))}
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  )
-                </span>
-                <div className="mx-1 space-y-0.5 text-center border-l border-slate-300 pl-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    = {formatINR(grossPlusBalance)}
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground font-medium">
-                  Total Expenses − (Gross Sale +/− Prev. Balance)
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Balance Cash
-                </div>
-              </div>
-            </div>
-
-            {/* Balance Cash result */}
-            <motion.div
-              key={balanceCash}
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ duration: 0.25 }}
-              data-ocid="balance.result"
-              className={`rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-2 ${
-                balanceCash > 0
-                  ? "bg-emerald-50 border-emerald-300"
-                  : balanceCash < 0
-                    ? "bg-red-50 border-red-300"
-                    : "bg-slate-50 border-slate-300"
-              }`}
-            >
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-foreground/50 mb-1">
-                  Balance Cash
-                </div>
-                <div className="text-sm text-foreground/60">
-                  Total Expenses ₹{formatINR(totalExpenses)} − (Gross Sale ₹
-                  {formatINR(totalGrossSale)} {prevBalance >= 0 ? "+" : "−"}{" "}
-                  Balance ₹{formatINR(Math.abs(prevBalance))})
-                </div>
-              </div>
-              <div className="flex flex-col sm:items-end gap-1">
-                <div
-                  className={`font-mono font-bold text-3xl sm:text-4xl tracking-tight ${
-                    balanceCash > 0
-                      ? "text-emerald-600"
-                      : balanceCash < 0
-                        ? "text-red-600"
-                        : "text-foreground/50"
-                  }`}
-                >
-                  {balanceCash >= 0 ? "+" : ""}
-                  {formatINR(balanceCash)}
-                </div>
-                <span
-                  className={`text-xs font-bold uppercase tracking-widest ${
-                    balanceCash > 0
-                      ? "text-emerald-600"
-                      : balanceCash < 0
-                        ? "text-red-600"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {balanceCash > 0
-                    ? "Surplus"
-                    : balanceCash < 0
-                      ? "Deficit"
-                      : "Balanced"}
-                </span>
-              </div>
-            </motion.div>
-          </div>
-        </motion.div>
+        {/* ── Cash Denomination Calculator ─────────────── */}
+        <CashDenominationCalculator
+          denoms={denoms}
+          onDenomChange={updateDenom}
+          netCashSales={netCashSales}
+        />
 
         {/* ── Footer ──────────────────────────────────── */}
         <footer className="text-center text-xs text-muted-foreground py-6 no-print">
@@ -1866,6 +1706,7 @@ export default function App() {
               Browse and load past saved reports by date
             </p>
           </SheetHeader>
+
           <div className="mt-4 flex-1 overflow-hidden">
             {isLoadingDates ? (
               <div
@@ -1924,7 +1765,7 @@ export default function App() {
                               className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${
                                 isActive
                                   ? "bg-white/20"
-                                  : "bg-primary/8 group-hover:bg-primary/15"
+                                  : "bg-primary/10 group-hover:bg-primary/15"
                               }`}
                             >
                               <CalendarDays

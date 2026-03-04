@@ -7,6 +7,10 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface DeductionsTab {
+    tabName: string;
+    rows: Array<DeductionRow>;
+}
 export interface DailyReport {
     msPrice: number;
     msTesting: number;
@@ -14,11 +18,10 @@ export interface DailyReport {
     hsdPrice: number;
     date: string;
     notes: string;
-    previousDayBalanceCash: number;
     hsdTesting: number;
-    expensesTabs: Array<ExpensesTab>;
     hsdNozzles: Array<Nozzle>;
     engineOilRows: Array<EngineOilRow>;
+    deductionsTabs: Array<DeductionsTab>;
 }
 export interface EngineOilRow {
     name: string;
@@ -29,13 +32,9 @@ export interface Nozzle {
     closeReading: number;
     openReading: number;
 }
-export interface ExpenseRow {
+export interface DeductionRow {
     expenseLabel: string;
     amount: number;
-}
-export interface ExpensesTab {
-    tabName: string;
-    rows: Array<ExpenseRow>;
 }
 export interface backendInterface {
     deleteReport(date: string): Promise<void>;

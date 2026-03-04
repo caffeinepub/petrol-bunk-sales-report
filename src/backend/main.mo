@@ -17,14 +17,14 @@ actor {
     price : Float;
   };
 
-  type ExpenseRow = {
+  type DeductionRow = {
     expenseLabel : Text;
     amount : Float;
   };
 
-  type ExpensesTab = {
+  type DeductionsTab = {
     tabName : Text;
-    rows : [ExpenseRow];
+    rows : [DeductionRow];
   };
 
   type DailyReport = {
@@ -36,8 +36,7 @@ actor {
     hsdTesting : Float;
     msTesting : Float;
     engineOilRows : [EngineOilRow];
-    expensesTabs : [ExpensesTab];
-    previousDayBalanceCash : Float;
+    deductionsTabs : [DeductionsTab];
     notes : Text;
   };
 
@@ -53,12 +52,12 @@ actor {
   public shared ({ caller }) func saveReport(date : Text, report : DailyReport) : async () {
     validateDate(date);
 
-    if (report.hsdNozzles.size() != 4) {
-      Runtime.trap("HSD must have exactly 4 nozzles");
+    if (report.hsdNozzles.size() != 2) {
+      Runtime.trap("HSD must have exactly 2 nozzles");
     };
 
-    if (report.msNozzles.size() != 4) {
-      Runtime.trap("MS must have exactly 4 nozzles");
+    if (report.msNozzles.size() != 2) {
+      Runtime.trap("MS must have exactly 2 nozzles");
     };
 
     reports.add(date, report);

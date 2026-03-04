@@ -12,18 +12,18 @@ export const Nozzle = IDL.Record({
   'closeReading' : IDL.Float64,
   'openReading' : IDL.Float64,
 });
-export const ExpenseRow = IDL.Record({
-  'expenseLabel' : IDL.Text,
-  'amount' : IDL.Float64,
-});
-export const ExpensesTab = IDL.Record({
-  'tabName' : IDL.Text,
-  'rows' : IDL.Vec(ExpenseRow),
-});
 export const EngineOilRow = IDL.Record({
   'name' : IDL.Text,
   'quantity' : IDL.Float64,
   'price' : IDL.Float64,
+});
+export const DeductionRow = IDL.Record({
+  'expenseLabel' : IDL.Text,
+  'amount' : IDL.Float64,
+});
+export const DeductionsTab = IDL.Record({
+  'tabName' : IDL.Text,
+  'rows' : IDL.Vec(DeductionRow),
 });
 export const DailyReport = IDL.Record({
   'msPrice' : IDL.Float64,
@@ -32,11 +32,10 @@ export const DailyReport = IDL.Record({
   'hsdPrice' : IDL.Float64,
   'date' : IDL.Text,
   'notes' : IDL.Text,
-  'previousDayBalanceCash' : IDL.Float64,
   'hsdTesting' : IDL.Float64,
-  'expensesTabs' : IDL.Vec(ExpensesTab),
   'hsdNozzles' : IDL.Vec(Nozzle),
   'engineOilRows' : IDL.Vec(EngineOilRow),
+  'deductionsTabs' : IDL.Vec(DeductionsTab),
 });
 
 export const idlService = IDL.Service({
@@ -53,18 +52,18 @@ export const idlFactory = ({ IDL }) => {
     'closeReading' : IDL.Float64,
     'openReading' : IDL.Float64,
   });
-  const ExpenseRow = IDL.Record({
-    'expenseLabel' : IDL.Text,
-    'amount' : IDL.Float64,
-  });
-  const ExpensesTab = IDL.Record({
-    'tabName' : IDL.Text,
-    'rows' : IDL.Vec(ExpenseRow),
-  });
   const EngineOilRow = IDL.Record({
     'name' : IDL.Text,
     'quantity' : IDL.Float64,
     'price' : IDL.Float64,
+  });
+  const DeductionRow = IDL.Record({
+    'expenseLabel' : IDL.Text,
+    'amount' : IDL.Float64,
+  });
+  const DeductionsTab = IDL.Record({
+    'tabName' : IDL.Text,
+    'rows' : IDL.Vec(DeductionRow),
   });
   const DailyReport = IDL.Record({
     'msPrice' : IDL.Float64,
@@ -73,11 +72,10 @@ export const idlFactory = ({ IDL }) => {
     'hsdPrice' : IDL.Float64,
     'date' : IDL.Text,
     'notes' : IDL.Text,
-    'previousDayBalanceCash' : IDL.Float64,
     'hsdTesting' : IDL.Float64,
-    'expensesTabs' : IDL.Vec(ExpensesTab),
     'hsdNozzles' : IDL.Vec(Nozzle),
     'engineOilRows' : IDL.Vec(EngineOilRow),
+    'deductionsTabs' : IDL.Vec(DeductionsTab),
   });
   
   return IDL.Service({
