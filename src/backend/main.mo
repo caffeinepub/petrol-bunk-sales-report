@@ -1,60 +1,83 @@
-import Map "mo:core/Map";
-import Float "mo:core/Float";
-import List "mo:core/List";
 import Text "mo:core/Text";
-import Runtime "mo:core/Runtime";
-import Iter "mo:core/Iter";
+import Map "mo:core/Map";
 import Array "mo:core/Array";
+import Runtime "mo:core/Runtime";
+
+
 
 actor {
-  type Deduction = {
-    type_ : Text;
-    description : Text;
+  type Nozzle = {
+    openReading : Float;
+    closeReading : Float;
+  };
+
+  type EngineOilRow = {
+    name : Text;
+    quantity : Float;
+    price : Float;
+  };
+
+  type ExpenseRow = {
+    expenseLabel : Text;
     amount : Float;
   };
 
-  type FuelData = {
-    pricePerLitre : Float;
-    openingReading : Float;
-    closingReading : Float;
+  type ExpensesTab = {
+    tabName : Text;
+    rows : [ExpenseRow];
   };
 
   type DailyReport = {
-    ms : FuelData;
-    hsd : FuelData;
-    deductions : [Deduction];
+    date : Text;
+    hsdPrice : Float;
+    msPrice : Float;
+    hsdNozzles : [Nozzle];
+    msNozzles : [Nozzle];
+    hsdTesting : Float;
+    msTesting : Float;
+    engineOilRows : [EngineOilRow];
+    expensesTabs : [ExpensesTab];
+    previousDayBalanceCash : Float;
+    notes : Text;
   };
 
   let reports = Map.empty<Text, DailyReport>();
 
-  public shared ({ caller }) func saveReport(date : Text, ms : FuelData, hsd : FuelData, deductions : [(Text, Text, Float)]) : async () {
-    let mutableDeductions = List.empty<Deduction>();
-    for ((type_, description, amount) in deductions.values()) {
-      let deduction : Deduction = {
-        type_;
-        description;
-        amount;
-      };
-      mutableDeductions.add(deduction);
+  func validateDate(date : Text) {
+    switch (date.size()) {
+      case (10) {};
+      case (_) { Runtime.trap("Date string must be 10 characters in format YYYY-MM-DD") };
     };
-
-    let newReport : DailyReport = {
-      ms;
-      hsd;
-      deductions = mutableDeductions.toArray();
-    };
-
-    reports.add(date, newReport);
   };
 
-  public query ({ caller }) func getReport(date : Text) : async DailyReport {
-    switch (reports.get(date)) {
-      case (null) { Runtime.trap("Report not found") };
-      case (?report) { report };
+  public shared ({ caller }) func saveReport(date : Text, report : DailyReport) : async () {
+    validateDate(date);
+
+    if (report.hsdNozzles.size() != 4) {
+      Runtime.trap("HSD must have exactly 4 nozzles");
     };
+
+    if (report.msNozzles.size() != 4) {
+      Runtime.trap("MS must have exactly 4 nozzles");
+    };
+
+    reports.add(date, report);
+  };
+
+  public query ({ caller }) func getReport(date : Text) : async ?DailyReport {
+    reports.get(date);
   };
 
   public query ({ caller }) func listReportDates() : async [Text] {
     reports.keys().toArray();
+  };
+
+  public shared ({ caller }) func deleteReport(date : Text) : async () {
+    switch (reports.get(date)) {
+      case (null) { Runtime.trap("Report not found") };
+      case (?_) {
+        reports.remove(date);
+      };
+    };
   };
 };

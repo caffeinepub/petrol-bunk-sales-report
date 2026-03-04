@@ -11,27 +11,31 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export interface DailyReport {
-  'ms' : FuelData,
-  'hsd' : FuelData,
-  'deductions' : Array<Deduction>,
+  'msPrice' : number,
+  'msTesting' : number,
+  'msNozzles' : Array<Nozzle>,
+  'hsdPrice' : number,
+  'date' : string,
+  'notes' : string,
+  'previousDayBalanceCash' : number,
+  'hsdTesting' : number,
+  'expensesTabs' : Array<ExpensesTab>,
+  'hsdNozzles' : Array<Nozzle>,
+  'engineOilRows' : Array<EngineOilRow>,
 }
-export interface Deduction {
-  'type' : string,
-  'description' : string,
-  'amount' : number,
+export interface EngineOilRow {
+  'name' : string,
+  'quantity' : number,
+  'price' : number,
 }
-export interface FuelData {
-  'pricePerLitre' : number,
-  'closingReading' : number,
-  'openingReading' : number,
-}
+export interface ExpenseRow { 'expenseLabel' : string, 'amount' : number }
+export interface ExpensesTab { 'tabName' : string, 'rows' : Array<ExpenseRow> }
+export interface Nozzle { 'closeReading' : number, 'openReading' : number }
 export interface _SERVICE {
-  'getReport' : ActorMethod<[string], DailyReport>,
+  'deleteReport' : ActorMethod<[string], undefined>,
+  'getReport' : ActorMethod<[string], [] | [DailyReport]>,
   'listReportDates' : ActorMethod<[], Array<string>>,
-  'saveReport' : ActorMethod<
-    [string, FuelData, FuelData, Array<[string, string, number]>],
-    undefined
-  >,
+  'saveReport' : ActorMethod<[string, DailyReport], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

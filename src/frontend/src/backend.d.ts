@@ -8,22 +8,38 @@ export interface None {
 }
 export type Option<T> = Some<T> | None;
 export interface DailyReport {
-    ms: FuelData;
-    hsd: FuelData;
-    deductions: Array<Deduction>;
+    msPrice: number;
+    msTesting: number;
+    msNozzles: Array<Nozzle>;
+    hsdPrice: number;
+    date: string;
+    notes: string;
+    previousDayBalanceCash: number;
+    hsdTesting: number;
+    expensesTabs: Array<ExpensesTab>;
+    hsdNozzles: Array<Nozzle>;
+    engineOilRows: Array<EngineOilRow>;
 }
-export interface FuelData {
-    pricePerLitre: number;
-    closingReading: number;
-    openingReading: number;
+export interface EngineOilRow {
+    name: string;
+    quantity: number;
+    price: number;
 }
-export interface Deduction {
-    type: string;
-    description: string;
+export interface Nozzle {
+    closeReading: number;
+    openReading: number;
+}
+export interface ExpenseRow {
+    expenseLabel: string;
     amount: number;
 }
+export interface ExpensesTab {
+    tabName: string;
+    rows: Array<ExpenseRow>;
+}
 export interface backendInterface {
-    getReport(date: string): Promise<DailyReport>;
+    deleteReport(date: string): Promise<void>;
+    getReport(date: string): Promise<DailyReport | null>;
     listReportDates(): Promise<Array<string>>;
-    saveReport(date: string, ms: FuelData, hsd: FuelData, deductions: Array<[string, string, number]>): Promise<void>;
+    saveReport(date: string, report: DailyReport): Promise<void>;
 }

@@ -8,69 +8,83 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const FuelData = IDL.Record({
-  'pricePerLitre' : IDL.Float64,
-  'closingReading' : IDL.Float64,
-  'openingReading' : IDL.Float64,
+export const Nozzle = IDL.Record({
+  'closeReading' : IDL.Float64,
+  'openReading' : IDL.Float64,
 });
-export const Deduction = IDL.Record({
-  'type' : IDL.Text,
-  'description' : IDL.Text,
+export const ExpenseRow = IDL.Record({
+  'expenseLabel' : IDL.Text,
   'amount' : IDL.Float64,
 });
+export const ExpensesTab = IDL.Record({
+  'tabName' : IDL.Text,
+  'rows' : IDL.Vec(ExpenseRow),
+});
+export const EngineOilRow = IDL.Record({
+  'name' : IDL.Text,
+  'quantity' : IDL.Float64,
+  'price' : IDL.Float64,
+});
 export const DailyReport = IDL.Record({
-  'ms' : FuelData,
-  'hsd' : FuelData,
-  'deductions' : IDL.Vec(Deduction),
+  'msPrice' : IDL.Float64,
+  'msTesting' : IDL.Float64,
+  'msNozzles' : IDL.Vec(Nozzle),
+  'hsdPrice' : IDL.Float64,
+  'date' : IDL.Text,
+  'notes' : IDL.Text,
+  'previousDayBalanceCash' : IDL.Float64,
+  'hsdTesting' : IDL.Float64,
+  'expensesTabs' : IDL.Vec(ExpensesTab),
+  'hsdNozzles' : IDL.Vec(Nozzle),
+  'engineOilRows' : IDL.Vec(EngineOilRow),
 });
 
 export const idlService = IDL.Service({
-  'getReport' : IDL.Func([IDL.Text], [DailyReport], ['query']),
+  'deleteReport' : IDL.Func([IDL.Text], [], []),
+  'getReport' : IDL.Func([IDL.Text], [IDL.Opt(DailyReport)], ['query']),
   'listReportDates' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-  'saveReport' : IDL.Func(
-      [
-        IDL.Text,
-        FuelData,
-        FuelData,
-        IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text, IDL.Float64)),
-      ],
-      [],
-      [],
-    ),
+  'saveReport' : IDL.Func([IDL.Text, DailyReport], [], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
-  const FuelData = IDL.Record({
-    'pricePerLitre' : IDL.Float64,
-    'closingReading' : IDL.Float64,
-    'openingReading' : IDL.Float64,
+  const Nozzle = IDL.Record({
+    'closeReading' : IDL.Float64,
+    'openReading' : IDL.Float64,
   });
-  const Deduction = IDL.Record({
-    'type' : IDL.Text,
-    'description' : IDL.Text,
+  const ExpenseRow = IDL.Record({
+    'expenseLabel' : IDL.Text,
     'amount' : IDL.Float64,
   });
+  const ExpensesTab = IDL.Record({
+    'tabName' : IDL.Text,
+    'rows' : IDL.Vec(ExpenseRow),
+  });
+  const EngineOilRow = IDL.Record({
+    'name' : IDL.Text,
+    'quantity' : IDL.Float64,
+    'price' : IDL.Float64,
+  });
   const DailyReport = IDL.Record({
-    'ms' : FuelData,
-    'hsd' : FuelData,
-    'deductions' : IDL.Vec(Deduction),
+    'msPrice' : IDL.Float64,
+    'msTesting' : IDL.Float64,
+    'msNozzles' : IDL.Vec(Nozzle),
+    'hsdPrice' : IDL.Float64,
+    'date' : IDL.Text,
+    'notes' : IDL.Text,
+    'previousDayBalanceCash' : IDL.Float64,
+    'hsdTesting' : IDL.Float64,
+    'expensesTabs' : IDL.Vec(ExpensesTab),
+    'hsdNozzles' : IDL.Vec(Nozzle),
+    'engineOilRows' : IDL.Vec(EngineOilRow),
   });
   
   return IDL.Service({
-    'getReport' : IDL.Func([IDL.Text], [DailyReport], ['query']),
+    'deleteReport' : IDL.Func([IDL.Text], [], []),
+    'getReport' : IDL.Func([IDL.Text], [IDL.Opt(DailyReport)], ['query']),
     'listReportDates' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-    'saveReport' : IDL.Func(
-        [
-          IDL.Text,
-          FuelData,
-          FuelData,
-          IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text, IDL.Float64)),
-        ],
-        [],
-        [],
-      ),
+    'saveReport' : IDL.Func([IDL.Text, DailyReport], [], []),
   });
 };
 

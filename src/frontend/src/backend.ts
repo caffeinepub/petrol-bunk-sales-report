@@ -90,39 +90,70 @@ export class ExternalBlob {
     }
 }
 export interface DailyReport {
-    ms: FuelData;
-    hsd: FuelData;
-    deductions: Array<Deduction>;
+    msPrice: number;
+    msTesting: number;
+    msNozzles: Array<Nozzle>;
+    hsdPrice: number;
+    date: string;
+    notes: string;
+    previousDayBalanceCash: number;
+    hsdTesting: number;
+    expensesTabs: Array<ExpensesTab>;
+    hsdNozzles: Array<Nozzle>;
+    engineOilRows: Array<EngineOilRow>;
 }
-export interface FuelData {
-    pricePerLitre: number;
-    closingReading: number;
-    openingReading: number;
+export interface EngineOilRow {
+    name: string;
+    quantity: number;
+    price: number;
 }
-export interface Deduction {
-    type: string;
-    description: string;
+export interface Nozzle {
+    closeReading: number;
+    openReading: number;
+}
+export interface ExpenseRow {
+    expenseLabel: string;
     amount: number;
 }
-export interface backendInterface {
-    getReport(date: string): Promise<DailyReport>;
-    listReportDates(): Promise<Array<string>>;
-    saveReport(date: string, ms: FuelData, hsd: FuelData, deductions: Array<[string, string, number]>): Promise<void>;
+export interface ExpensesTab {
+    tabName: string;
+    rows: Array<ExpenseRow>;
 }
+export interface backendInterface {
+    deleteReport(date: string): Promise<void>;
+    getReport(date: string): Promise<DailyReport | null>;
+    listReportDates(): Promise<Array<string>>;
+    saveReport(date: string, report: DailyReport): Promise<void>;
+}
+import type { DailyReport as _DailyReport } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
-    async getReport(arg0: string): Promise<DailyReport> {
+    async deleteReport(arg0: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.getReport(arg0);
+                const result = await this.actor.deleteReport(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getReport(arg0);
+            const result = await this.actor.deleteReport(arg0);
             return result;
+        }
+    }
+    async getReport(arg0: string): Promise<DailyReport | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getReport(arg0);
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getReport(arg0);
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
         }
     }
     async listReportDates(): Promise<Array<string>> {
@@ -139,20 +170,23 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async saveReport(arg0: string, arg1: FuelData, arg2: FuelData, arg3: Array<[string, string, number]>): Promise<void> {
+    async saveReport(arg0: string, arg1: DailyReport): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.saveReport(arg0, arg1, arg2, arg3);
+                const result = await this.actor.saveReport(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.saveReport(arg0, arg1, arg2, arg3);
+            const result = await this.actor.saveReport(arg0, arg1);
             return result;
         }
     }
+}
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_DailyReport]): DailyReport | null {
+    return value.length === 0 ? null : value[0];
 }
 export interface CreateActorOptions {
     agent?: Agent;

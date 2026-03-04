@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DailyReport, Deduction, FuelData } from "../backend.d";
+import type { DailyReport } from "../backend.d";
 import { useActor } from "./useActor";
 
 export function useGetReport(date: string) {
@@ -9,8 +9,7 @@ export function useGetReport(date: string) {
     queryFn: async () => {
       if (!actor) return null;
       try {
-        const report = await actor.getReport(date);
-        return report;
+        return await actor.getReport(date);
       } catch {
         return null;
       }
@@ -39,20 +38,13 @@ export function useSaveReport() {
   return useMutation({
     mutationFn: async ({
       date,
-      ms,
-      hsd,
-      deductions,
+      report,
     }: {
       date: string;
-      ms: FuelData;
-      hsd: FuelData;
-      deductions: Deduction[];
+      report: DailyReport;
     }) => {
       if (!actor) throw new Error("Actor not available");
-      const deductionTuples: [string, string, number][] = deductions.map(
-        (d) => [d.type, d.description, d.amount],
-      );
-      await actor.saveReport(date, ms, hsd, deductionTuples);
+      await actor.saveReport(date, report);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["report", variables.date] });
@@ -60,5 +52,3 @@ export function useSaveReport() {
     },
   });
 }
-
-export type { DailyReport, FuelData, Deduction };

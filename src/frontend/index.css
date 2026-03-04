@@ -4,9 +4,9 @@
 
 /* ─── Fonts ─────────────────────────────────────────────── */
 @font-face {
-  font-family: "Sora";
-  src: url("/assets/fonts/Sora.woff2") format("woff2");
-  font-weight: 100 800;
+  font-family: "Outfit";
+  src: url("/assets/fonts/Outfit.woff2") format("woff2");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -22,58 +22,59 @@
 /* ─── Design Tokens ─────────────────────────────────────── */
 @layer base {
   :root {
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    /* Core palette — slate-dark industrial */
-    --background: 0.96 0.006 250;
-    --foreground: 0.18 0.02 250;
+    /* Core palette — clean white with cool-neutral tone */
+    --background: 0.97 0.004 250;
+    --foreground: 0.16 0.018 255;
 
     --card: 1 0 0;
-    --card-foreground: 0.18 0.02 250;
+    --card-foreground: 0.16 0.018 255;
 
     --popover: 1 0 0;
-    --popover-foreground: 0.18 0.02 250;
+    --popover-foreground: 0.16 0.018 255;
 
-    /* Primary — Sky Blue */
-    --primary: 0.62 0.18 230;
-    --primary-foreground: 0.97 0.006 250;
+    /* Primary — Sky Blue (top bar, CTAs) */
+    --primary: 0.58 0.18 232;
+    --primary-foreground: 0.98 0.003 250;
 
-    /* Secondary — light slate */
-    --secondary: 0.93 0.012 255;
-    --secondary-foreground: 0.25 0.045 255;
+    /* Secondary */
+    --secondary: 0.94 0.01 255;
+    --secondary-foreground: 0.24 0.04 255;
 
-    --muted: 0.93 0.01 255;
-    --muted-foreground: 0.52 0.025 255;
+    --muted: 0.94 0.008 255;
+    --muted-foreground: 0.50 0.022 255;
 
-    --accent: 0.91 0.015 255;
-    --accent-foreground: 0.25 0.045 255;
+    --accent: 0.92 0.012 255;
+    --accent-foreground: 0.24 0.04 255;
 
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 0.985 0 0;
 
-    --border: 0.88 0.015 255;
-    --input: 0.88 0.015 255;
-    --ring: 0.55 0.12 255;
+    --border: 0.88 0.012 255;
+    --input: 0.88 0.012 255;
+    --ring: 0.58 0.14 232;
 
-    /* MS Fuel — teal/emerald */
-    --ms-primary: 0.55 0.15 175;
-    --ms-secondary: 0.88 0.06 175;
-    --ms-text: 0.35 0.1 175;
-    --ms-bg: 0.97 0.025 175;
-    --ms-border: 0.78 0.1 175;
+    /* HSD — rich blue */
+    --hsd-bg: 0.97 0.018 245;
+    --hsd-border: 0.76 0.1 245;
+    --hsd-header: 0.40 0.18 248;
+    --hsd-calc-bg: 0.90 0.04 245;
+    --hsd-calc-border: 0.78 0.08 245;
+    --hsd-calc-text: 0.28 0.15 248;
 
-    /* HSD Fuel — BPCL Blue */
-    --hsd-primary: 0.38 0.18 255;
-    --hsd-secondary: 0.87 0.06 255;
-    --hsd-text: 0.28 0.14 255;
-    --hsd-bg: 0.97 0.025 255;
-    --hsd-border: 0.78 0.1 255;
+    /* MS — emerald green */
+    --ms-bg: 0.97 0.018 165;
+    --ms-border: 0.76 0.1 165;
+    --ms-header: 0.42 0.17 165;
+    --ms-calc-bg: 0.90 0.04 165;
+    --ms-calc-border: 0.78 0.08 165;
+    --ms-calc-text: 0.28 0.14 165;
 
-    /* Net highlight — emerald green */
-    --net-primary: 0.52 0.18 148;
-    --net-bg: 0.95 0.04 148;
-    --net-border: 0.75 0.14 148;
-    --net-text: 0.3 0.12 148;
+    /* Engine oil — amber/warm orange */
+    --oil-bg: 0.97 0.018 75;
+    --oil-border: 0.76 0.12 75;
+    --oil-header: 0.52 0.18 60;
 
     --chart-1: 0.646 0.222 41.116;
     --chart-2: 0.6 0.118 184.704;
@@ -96,7 +97,8 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "kern" 1, "liga" 1;
   }
 
@@ -117,89 +119,101 @@
   }
 }
 
-/* ─── MS Fuel Card ────────────────────────────────────── */
-.fuel-card-ms {
-  background: oklch(var(--ms-bg));
-  border: 1.5px solid oklch(var(--ms-border));
+/* ─── Top bar ─────────────────────────────────────────── */
+.dsr-topbar {
+  background: linear-gradient(135deg, oklch(0.52 0.19 232) 0%, oklch(0.44 0.18 245) 100%);
 }
 
-.fuel-card-ms .fuel-header {
-  background: oklch(var(--ms-primary));
-  color: white;
-}
-
-.fuel-card-ms .fuel-badge {
-  background: oklch(var(--ms-secondary));
-  color: oklch(var(--ms-text));
-}
-
-.fuel-card-ms .fuel-input:focus {
-  border-color: oklch(var(--ms-primary));
-  box-shadow: 0 0 0 2px oklch(var(--ms-primary) / 0.2);
-  outline: none;
-}
-
-.fuel-card-ms .calc-field {
-  background: oklch(var(--ms-secondary));
-  color: oklch(var(--ms-text));
-  border-color: oklch(var(--ms-border));
-}
-
-/* ─── HSD Fuel Card ───────────────────────────────────── */
-.fuel-card-hsd {
+/* ─── HSD Card ────────────────────────────────────────── */
+.dsr-card-hsd {
   background: oklch(var(--hsd-bg));
-  border: 1.5px solid oklch(var(--hsd-border));
-}
-
-.fuel-card-hsd .fuel-header {
-  background: oklch(var(--hsd-primary));
-  color: white;
-}
-
-.fuel-card-hsd .fuel-badge {
-  background: oklch(var(--hsd-secondary));
-  color: oklch(var(--hsd-text));
-}
-
-.fuel-card-hsd .fuel-input:focus {
-  border-color: oklch(var(--hsd-primary));
-  box-shadow: 0 0 0 2px oklch(var(--hsd-primary) / 0.2);
-  outline: none;
-}
-
-.fuel-card-hsd .calc-field {
-  background: oklch(var(--hsd-secondary));
-  color: oklch(var(--hsd-text));
   border-color: oklch(var(--hsd-border));
 }
 
-/* ─── Net Cash Sales highlight ───────────────────────── */
-.net-sales-card {
-  background: oklch(var(--net-bg));
-  border: 2px solid oklch(var(--net-border));
+.dsr-header-hsd {
+  background: linear-gradient(135deg, oklch(var(--hsd-header)) 0%, oklch(0.34 0.2 248) 100%);
 }
 
-.net-sales-value {
-  color: oklch(var(--net-primary));
+.dsr-card-hsd .dsr-fuel-input {
+  background: oklch(1 0 0 / 0.7);
+  border-color: oklch(var(--hsd-border));
+}
+.dsr-card-hsd .dsr-fuel-input:focus {
+  border-color: oklch(var(--hsd-header));
+  box-shadow: 0 0 0 2px oklch(var(--hsd-header) / 0.2);
 }
 
-/* ─── Fuel dot decoration ────────────────────────────── */
-.fuel-dots {
-  position: absolute;
-  right: 1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
+.dsr-card-hsd .dsr-calc-field {
+  background: oklch(var(--hsd-calc-bg));
+  border-color: oklch(var(--hsd-calc-border));
+  color: oklch(var(--hsd-calc-text));
+}
+
+/* ─── MS Card ─────────────────────────────────────────── */
+.dsr-card-ms {
+  background: oklch(var(--ms-bg));
+  border-color: oklch(var(--ms-border));
+}
+
+.dsr-header-ms {
+  background: linear-gradient(135deg, oklch(var(--ms-header)) 0%, oklch(0.34 0.18 165) 100%);
+}
+
+.dsr-card-ms .dsr-fuel-input {
+  background: oklch(1 0 0 / 0.7);
+  border-color: oklch(var(--ms-border));
+}
+.dsr-card-ms .dsr-fuel-input:focus {
+  border-color: oklch(var(--ms-header));
+  box-shadow: 0 0 0 2px oklch(var(--ms-header) / 0.2);
+}
+
+.dsr-card-ms .dsr-calc-field {
+  background: oklch(var(--ms-calc-bg));
+  border-color: oklch(var(--ms-calc-border));
+  color: oklch(var(--ms-calc-text));
+}
+
+/* ─── Engine Oil Card ─────────────────────────────────── */
+.dsr-card-oil {
+  background: oklch(var(--oil-bg));
+  border-color: oklch(var(--oil-border));
+}
+
+.dsr-header-oil {
+  background: linear-gradient(135deg, oklch(var(--oil-header)) 0%, oklch(0.44 0.2 55) 100%);
+}
+
+.dsr-card-oil .dsr-calc-field {
+  background: oklch(0.94 0.025 75);
+  border-color: oklch(var(--oil-border));
+  color: oklch(0.40 0.14 60);
+}
+
+/* ─── Decorative dots ────────────────────────────────── */
+.dsr-dots {
   display: flex;
   gap: 4px;
   opacity: 0.4;
+  margin-left: auto;
 }
 
-.fuel-dots span {
+.dsr-dots span {
   display: block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: white;
+}
+
+/* ─── Tank Stock Card ─────────────────────────────────── */
+.dsr-card-tanks {
+  background: oklch(0.97 0.014 220);
+  border-color: oklch(0.76 0.09 220);
+}
+
+.dsr-header-tanks {
+  background: linear-gradient(135deg, oklch(0.42 0.18 230) 0%, oklch(0.36 0.18 250) 100%);
 }
 
 /* ─── Print Styles ────────────────────────────────────── */
@@ -211,43 +225,31 @@
   body {
     background: white !important;
     color: black !important;
-    font-size: 12pt;
-  }
-
-  .print-full-width {
-    width: 100% !important;
-    max-width: 100% !important;
-    grid-template-columns: 1fr 1fr !important;
+    font-size: 11pt;
   }
 
   .print-container {
     max-width: 100% !important;
-    padding: 0 !important;
+    padding: 0 1cm !important;
   }
 
-  .fuel-card-ms,
-  .fuel-card-hsd {
+  .dsr-card-hsd,
+  .dsr-card-ms,
+  .dsr-card-oil,
+  .dsr-card-tanks {
     background: white !important;
     border: 1px solid #ccc !important;
+    break-inside: avoid;
   }
 
-  .fuel-card-ms .fuel-header,
-  .fuel-card-hsd .fuel-header {
-    background: #1a1a1a !important;
+  .dsr-header-hsd,
+  .dsr-header-ms,
+  .dsr-header-oil,
+  .dsr-header-tanks {
+    background: #1a1a2e !important;
     color: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-
-  .net-sales-card {
-    background: #f0fdf4 !important;
-    border: 2px solid #16a34a !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .net-sales-value {
-    color: #15803d !important;
   }
 
   @page {
