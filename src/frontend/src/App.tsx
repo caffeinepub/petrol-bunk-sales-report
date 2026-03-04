@@ -1,4 +1,11 @@
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,9 +32,13 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 import {
   CalendarDays,
+  ChevronDown,
   ChevronRight,
   Coins,
   Download,
+  FileDown,
+  FileSpreadsheet,
+  FileText,
   Fuel,
   History,
   Loader2,
@@ -1692,6 +1703,298 @@ export default function App() {
     denoms,
   ]);
 
+  // ─── Notes (.txt) download ───────────────────────────
+  const handleDownloadTxt = useCallback(() => {
+    const totalCashTxt = [...NOTES, ...COINS].reduce(
+      (s, k) => s + k * toNum(denoms[k]?.count ?? ""),
+      0,
+    );
+    const diffTxt = totalCashTxt - netCashSales;
+
+    const lines: string[] = [];
+    const sep = "─".repeat(50);
+
+    lines.push("PUMP DAILY SALES REPORT");
+    lines.push(sep);
+    lines.push(`Date: ${date}`);
+    lines.push("");
+
+    lines.push("HSD — High Speed Diesel");
+    lines.push(sep);
+    lines.push(`  Price per Litre : Rs.${hsdPrice || "0"}`);
+    for (let i = 0; i < hsdNozzles.length; i++) {
+      lines.push(`  Nozzle ${i + 1} Opening : ${hsdNozzles[i].open || "0"}`);
+      lines.push(`  Nozzle ${i + 1} Closing : ${hsdNozzles[i].close || "0"}`);
+      lines.push(`  Nozzle ${i + 1} Volume  : ${hsdVolumes[i].toFixed(2)} L`);
+    }
+    lines.push(`  Testing          : ${hsdTesting || "0"} L`);
+    lines.push(`  Total Volume     : ${hsdTotalVolume.toFixed(2)} L`);
+    lines.push(`  Total Sale       : ${hsdTotalSale.toFixed(2)} L`);
+    lines.push(`  Gross Sale       : ${formatINR(hsdGross)}`);
+    lines.push("");
+
+    lines.push("MS — Motor Spirit / Petrol");
+    lines.push(sep);
+    lines.push(`  Price per Litre : Rs.${msPrice || "0"}`);
+    for (let i = 0; i < msNozzles.length; i++) {
+      lines.push(`  Nozzle ${i + 1} Opening : ${msNozzles[i].open || "0"}`);
+      lines.push(`  Nozzle ${i + 1} Closing : ${msNozzles[i].close || "0"}`);
+      lines.push(`  Nozzle ${i + 1} Volume  : ${msVolumes[i].toFixed(2)} L`);
+    }
+    lines.push(`  Testing          : ${msTesting || "0"} L`);
+    lines.push(`  Total Volume     : ${msTotalVolume.toFixed(2)} L`);
+    lines.push(`  Total Sale       : ${msTotalSale.toFixed(2)} L`);
+    lines.push(`  Gross Sale       : ${formatINR(msGross)}`);
+    lines.push("");
+
+    lines.push("Engine Oil");
+    lines.push(sep);
+    if (engineOilRows.length > 0) {
+      for (const r of engineOilRows) {
+        const rowTotal = toNum(r.quantity) * toNum(r.price);
+        lines.push(
+          `  ${r.name || "—"}  |  Qty: ${r.quantity || "0"}  |  Price: Rs.${r.price || "0"}  |  Total: ${formatINR(rowTotal)}`,
+        );
+      }
+      lines.push(`  Engine Oil Total : ${formatINR(engineOilTotal)}`);
+    } else {
+      lines.push("  No engine oil products.");
+    }
+    lines.push("");
+
+    lines.push("Total Gross Sale");
+    lines.push(sep);
+    lines.push(`  HSD Gross Sale   : ${formatINR(hsdGross)}`);
+    lines.push(`  MS Gross Sale    : ${formatINR(msGross)}`);
+    lines.push(`  Engine Oil Total : ${formatINR(engineOilTotal)}`);
+    lines.push(`  TOTAL GROSS SALE : ${formatINR(totalGrossSale)}`);
+    lines.push("");
+
+    lines.push("Deductions");
+    lines.push(sep);
+    for (const tab of expensesTabs) {
+      const tabTotal = tab.rows.reduce((s, r) => s + toNum(r.amount), 0);
+      lines.push(`  [ ${tab.tabName} ]`);
+      if (tab.rows.length > 0) {
+        for (const r of tab.rows) {
+          lines.push(`    ${r.label || "—"} : ${formatINR(toNum(r.amount))}`);
+        }
+        lines.push(`    Tab Total : ${formatINR(tabTotal)}`);
+      } else {
+        lines.push("    No entries.");
+      }
+    }
+    lines.push(`  TOTAL DEDUCTIONS : ${formatINR(totalDeductions)}`);
+    lines.push("");
+
+    lines.push("Summary");
+    lines.push(sep);
+    lines.push(`  Total Gross Sale  : ${formatINR(totalGrossSale)}`);
+    lines.push(`  Total Deductions  : ${formatINR(totalDeductions)}`);
+    lines.push(`  NET CASH SALES    : ${formatINR(netCashSales)}`);
+    lines.push("");
+
+    lines.push("Cash Denomination Calculator");
+    lines.push(sep);
+    lines.push("  Notes:");
+    for (const n of NOTES) {
+      lines.push(
+        `    Rs.${n} x ${denoms[n]?.count || "0"} = ${formatINR(n * toNum(denoms[n]?.count ?? ""))}`,
+      );
+    }
+    lines.push("  Coins:");
+    for (const c of COINS) {
+      lines.push(
+        `    Rs.${c} x ${denoms[c]?.count || "0"} = ${formatINR(c * toNum(denoms[c]?.count ?? ""))}`,
+      );
+    }
+    lines.push(`  Total Cash        : ${formatINR(totalCashTxt)}`);
+    lines.push(`  Net Cash Sales    : ${formatINR(netCashSales)}`);
+    lines.push(
+      `  Difference        : ${diffTxt >= 0 ? "+" : ""}${formatINR(diffTxt)}`,
+    );
+
+    const txt = lines.join("\n");
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    downloadBlob(blob, `Pump_Report_${date}.txt`);
+    toast.success("Report downloaded as Notes (.txt)");
+  }, [
+    date,
+    hsdPrice,
+    hsdTesting,
+    hsdNozzles,
+    hsdVolumes,
+    hsdTotalVolume,
+    hsdTotalSale,
+    hsdGross,
+    msPrice,
+    msTesting,
+    msNozzles,
+    msVolumes,
+    msTotalVolume,
+    msTotalSale,
+    msGross,
+    engineOilRows,
+    engineOilTotal,
+    totalGrossSale,
+    expensesTabs,
+    totalDeductions,
+    netCashSales,
+    denoms,
+  ]);
+
+  // ─── Excel (.csv) download ───────────────────────────
+  const handleDownloadCsv = useCallback(() => {
+    const q = (val: string) =>
+      val.includes(",") || val.includes('"') || val.includes("\n")
+        ? `"${val.replace(/"/g, '""')}"`
+        : val;
+    const row = (section: string, label: string, value: string) =>
+      `${q(section)},${q(label)},${q(value)}\n`;
+
+    const totalCashCsv = [...NOTES, ...COINS].reduce(
+      (s, k) => s + k * toNum(denoms[k]?.count ?? ""),
+      0,
+    );
+    const diffCsv = totalCashCsv - netCashSales;
+
+    let csv = "Section,Label,Value\n";
+
+    // HSD
+    csv += row("HSD", "Price per Litre", `Rs.${hsdPrice || "0"}`);
+    for (let i = 0; i < hsdNozzles.length; i++) {
+      csv += row("HSD", `Nozzle ${i + 1} Opening`, hsdNozzles[i].open || "0");
+      csv += row("HSD", `Nozzle ${i + 1} Closing`, hsdNozzles[i].close || "0");
+      csv += row("HSD", `Nozzle ${i + 1} Volume (L)`, hsdVolumes[i].toFixed(2));
+    }
+    csv += row("HSD", "Testing (L)", hsdTesting || "0");
+    csv += row("HSD", "Total Volume (L)", hsdTotalVolume.toFixed(2));
+    csv += row("HSD", "Total Sale (L)", hsdTotalSale.toFixed(2));
+    csv += row("HSD", "Gross Sale", formatINR(hsdGross));
+
+    // MS
+    csv += row("MS", "Price per Litre", `Rs.${msPrice || "0"}`);
+    for (let i = 0; i < msNozzles.length; i++) {
+      csv += row("MS", `Nozzle ${i + 1} Opening`, msNozzles[i].open || "0");
+      csv += row("MS", `Nozzle ${i + 1} Closing`, msNozzles[i].close || "0");
+      csv += row("MS", `Nozzle ${i + 1} Volume (L)`, msVolumes[i].toFixed(2));
+    }
+    csv += row("MS", "Testing (L)", msTesting || "0");
+    csv += row("MS", "Total Volume (L)", msTotalVolume.toFixed(2));
+    csv += row("MS", "Total Sale (L)", msTotalSale.toFixed(2));
+    csv += row("MS", "Gross Sale", formatINR(msGross));
+
+    // Engine Oil
+    if (engineOilRows.length > 0) {
+      for (const r of engineOilRows) {
+        const rowTotal = toNum(r.quantity) * toNum(r.price);
+        csv += row("Engine Oil", `${r.name || "—"} (Qty)`, r.quantity || "0");
+        csv += row(
+          "Engine Oil",
+          `${r.name || "—"} (Price)`,
+          `Rs.${r.price || "0"}`,
+        );
+        csv += row(
+          "Engine Oil",
+          `${r.name || "—"} (Total)`,
+          formatINR(rowTotal),
+        );
+      }
+      csv += row("Engine Oil", "Engine Oil Total", formatINR(engineOilTotal));
+    }
+
+    // Gross Sale Summary
+    csv += row("Gross Sale", "HSD Gross Sale", formatINR(hsdGross));
+    csv += row("Gross Sale", "MS Gross Sale", formatINR(msGross));
+    csv += row("Gross Sale", "Engine Oil Total", formatINR(engineOilTotal));
+    csv += row("Gross Sale", "Total Gross Sale", formatINR(totalGrossSale));
+
+    // Deductions
+    for (const tab of expensesTabs) {
+      const tabTotal = tab.rows.reduce((s, r) => s + toNum(r.amount), 0);
+      if (tab.rows.length > 0) {
+        for (const r of tab.rows) {
+          csv += row(
+            `Deductions - ${tab.tabName}`,
+            r.label || "—",
+            formatINR(toNum(r.amount)),
+          );
+        }
+      }
+      csv += row(
+        `Deductions - ${tab.tabName}`,
+        "Tab Total",
+        formatINR(tabTotal),
+      );
+    }
+    csv += row("Deductions", "Total Deductions", formatINR(totalDeductions));
+
+    // Summary
+    csv += row("Summary", "Total Gross Sale", formatINR(totalGrossSale));
+    csv += row("Summary", "Total Deductions", formatINR(totalDeductions));
+    csv += row("Summary", "Net Cash Sales", formatINR(netCashSales));
+
+    // Cash Denomination
+    for (const n of NOTES) {
+      csv += row(
+        "Cash Denominations",
+        `Note Rs.${n} (count)`,
+        denoms[n]?.count || "0",
+      );
+      csv += row(
+        "Cash Denominations",
+        `Note Rs.${n} (amount)`,
+        formatINR(n * toNum(denoms[n]?.count ?? "")),
+      );
+    }
+    for (const c of COINS) {
+      csv += row(
+        "Cash Denominations",
+        `Coin Rs.${c} (count)`,
+        denoms[c]?.count || "0",
+      );
+      csv += row(
+        "Cash Denominations",
+        `Coin Rs.${c} (amount)`,
+        formatINR(c * toNum(denoms[c]?.count ?? "")),
+      );
+    }
+    csv += row("Cash Denominations", "Total Cash", formatINR(totalCashCsv));
+    csv += row("Cash Denominations", "Net Cash Sales", formatINR(netCashSales));
+    csv += row(
+      "Cash Denominations",
+      "Difference",
+      `${diffCsv >= 0 ? "+" : ""}${formatINR(diffCsv)}`,
+    );
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    downloadBlob(blob, `Pump_Report_${date}.csv`);
+    toast.success("Report downloaded as Excel (.csv)");
+  }, [
+    date,
+    hsdPrice,
+    hsdTesting,
+    hsdNozzles,
+    hsdVolumes,
+    hsdTotalVolume,
+    hsdTotalSale,
+    hsdGross,
+    msPrice,
+    msTesting,
+    msNozzles,
+    msVolumes,
+    msTotalVolume,
+    msTotalSale,
+    msGross,
+    engineOilRows,
+    engineOilTotal,
+    totalGrossSale,
+    expensesTabs,
+    totalDeductions,
+    netCashSales,
+    denoms,
+  ]);
+
   // ─── Render ──────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
@@ -1762,16 +2065,75 @@ export default function App() {
                 )}
                 <span>Save</span>
               </Button>
-              <Button
-                data-ocid="header.download.button"
-                variant="ghost"
-                size="sm"
-                onClick={handleDownload}
-                className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    data-ocid="header.download.button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download</span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[100] w-52">
+                  <DropdownMenuItem
+                    data-ocid="header.download.word.button"
+                    onClick={handleDownload}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <FileDown className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Word (.doc)</div>
+                      <div className="text-xs text-muted-foreground">
+                        Formatted document
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-ocid="header.download.pdf.button"
+                    onClick={() => window.print()}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-red-600 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">PDF</div>
+                      <div className="text-xs text-muted-foreground">
+                        Save as PDF via print
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    data-ocid="header.download.txt.button"
+                    onClick={handleDownloadTxt}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-slate-600 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Notes (.txt)</div>
+                      <div className="text-xs text-muted-foreground">
+                        Plain-text summary
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-ocid="header.download.csv.button"
+                    onClick={handleDownloadCsv}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Excel (.csv)</div>
+                      <div className="text-xs text-muted-foreground">
+                        Spreadsheet-ready CSV
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 data-ocid="header.print.button"
                 variant="ghost"
