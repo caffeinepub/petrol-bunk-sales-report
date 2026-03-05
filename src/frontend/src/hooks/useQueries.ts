@@ -31,6 +31,22 @@ export function useListReportDates() {
   });
 }
 
+export function useDeleteReport() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (date: string) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.deleteReport(date);
+    },
+    onSuccess: (_, date) => {
+      queryClient.invalidateQueries({ queryKey: ["report", date] });
+      queryClient.invalidateQueries({ queryKey: ["reportDates"] });
+    },
+  });
+}
+
 export function useSaveReport() {
   const { actor } = useActor();
   const queryClient = useQueryClient();

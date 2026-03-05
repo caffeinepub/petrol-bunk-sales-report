@@ -37,6 +37,7 @@ import {
   Coins,
   Download,
   FileDown,
+  FileImage,
   FileSpreadsheet,
   FileText,
   Fuel,
@@ -46,6 +47,7 @@ import {
   Plus,
   Printer,
   Save,
+  Trash2,
   TrendingUp,
   Wallet,
   X,
@@ -55,6 +57,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { DailyReport } from "./backend.d";
 import {
+  useDeleteReport,
   useGetReport,
   useListReportDates,
   useSaveReport,
@@ -1246,6 +1249,7 @@ export default function App() {
   // ─── Backend hooks ────────────────────────────────────
   const { data: savedReport, isLoading: isLoadingReport } = useGetReport(date);
   const saveReportMutation = useSaveReport();
+  const deleteReportMutation = useDeleteReport();
   const { data: reportDates, isLoading: isLoadingDates } = useListReportDates();
 
   // ─── Load saved report when date/data changes ─────────
@@ -1485,6 +1489,88 @@ export default function App() {
       [denomination]: { count },
     }));
   }, []);
+
+  // ─── Delete report handler ───────────────────────────
+  const handleDeleteReport = useCallback(
+    async (targetDate: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      try {
+        await deleteReportMutation.mutateAsync(targetDate);
+        toast.success(`Report for ${targetDate} deleted.`);
+        // If we deleted the currently loaded date, reset fields
+        if (targetDate === date) {
+          setLoadDataForDate(null);
+          setHsdNozzles(emptyNozzles());
+          setMsNozzles(emptyNozzles());
+          setHsdPrice("");
+          setMsPrice("");
+          setHsdTesting("");
+          setMsTesting("");
+          setEngineOilRows([]);
+          setExpensesTabs(emptyExpenseTabs());
+          setDenoms(emptyDenoms());
+        }
+      } catch {
+        toast.error("Failed to delete report.");
+      }
+    },
+    [deleteReportMutation, date],
+  );
+
+  // ─── JPG (screenshot) download ───────────────────────
+  const handleDownloadJpg = useCallback(async () => {
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const el = document.querySelector(".print-container") as HTMLElement;
+      if (!el) {
+        toast.error("Could not capture page content.");
+        return;
+      }
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `Pump_Report_${date}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Report downloaded as JPG image.");
+    } catch {
+      toast.error("JPG export failed. Please try again.");
+    }
+  }, [date]);
+
+  const handleDownloadJpgPdf = useCallback(async () => {
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const { jsPDF } = await import("jspdf");
+      const el = document.querySelector(".print-container") as HTMLElement;
+      if (!el) {
+        toast.error("Could not capture page content.");
+        return;
+      }
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [canvas.width / 2, canvas.height / 2],
+      });
+      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`Pump_Report_${date}.pdf`);
+      toast.success("Report downloaded as JPG-PDF.");
+    } catch {
+      toast.error("JPG PDF export failed. Please try again.");
+    }
+  }, [date]);
 
   // ─── Save handler ────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -2080,6 +2166,33 @@ export default function App() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[100] w-52">
                   <DropdownMenuItem
+                    data-ocid="header.download.jpg.button"
+                    onClick={handleDownloadJpg}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <FileImage className="w-4 h-4 text-orange-500 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">JPG</div>
+                      <div className="text-xs text-muted-foreground">
+                        Screenshot image
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-ocid="header.download.jpg-pdf.button"
+                    onClick={handleDownloadJpgPdf}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <FileImage className="w-4 h-4 text-rose-600 shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">JPG PDF</div>
+                      <div className="text-xs text-muted-foreground">
+                        Image exported as PDF
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
                     data-ocid="header.download.word.button"
                     onClick={handleDownload}
                     className="gap-2 cursor-pointer"
@@ -2329,7 +2442,7 @@ export default function App() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             {isActive ? (
                               <span className="text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
                                 Current
@@ -2339,6 +2452,20 @@ export default function App() {
                                 View
                               </span>
                             )}
+                            <button
+                              type="button"
+                              data-ocid={`history.delete_button.${idx + 1}`}
+                              onClick={(e) => handleDeleteReport(d, e)}
+                              disabled={deleteReportMutation.isPending}
+                              className={`flex items-center justify-center w-7 h-7 rounded-md transition-all opacity-0 group-hover:opacity-100 ${
+                                isActive
+                                  ? "hover:bg-white/20 text-white/70 hover:text-white"
+                                  : "hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                              }`}
+                              title="Delete report"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                             <ChevronRight
                               className={`w-4 h-4 transition-transform group-hover:translate-x-0.5 ${isActive ? "text-white/60" : "text-muted-foreground"}`}
                             />
