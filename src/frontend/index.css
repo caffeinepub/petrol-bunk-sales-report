@@ -242,6 +242,13 @@
     display: none !important;
   }
 
+  /* Hide any open dropdown/popover menus during print */
+  [data-radix-popper-content-wrapper],
+  [role="menu"],
+  [data-state="open"][data-radix-dropdown-menu-content] {
+    display: none !important;
+  }
+
   body {
     background: white !important;
     color: black !important;

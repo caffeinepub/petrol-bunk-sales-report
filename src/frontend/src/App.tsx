@@ -56,6 +56,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { DailyReport } from "./backend.d";
+import { useActor } from "./hooks/useActor";
 import {
   useDeleteReport,
   useGetReport,
@@ -1247,6 +1248,7 @@ export default function App() {
   const [loadDataForDate, setLoadDataForDate] = useState<string | null>(null);
 
   // ─── Backend hooks ────────────────────────────────────
+  const { actor, isFetching: isActorLoading } = useActor();
   const { data: savedReport, isLoading: isLoadingReport } = useGetReport(date);
   const saveReportMutation = useSaveReport();
   const deleteReportMutation = useDeleteReport();
@@ -1517,63 +1519,15 @@ export default function App() {
     [deleteReportMutation, date],
   );
 
-  // ─── JPG (screenshot) download ───────────────────────
-  const handleDownloadJpg = useCallback(async () => {
-    try {
-      const { default: html2canvas } = await import("html2canvas");
-      const el = document.querySelector(".print-container") as HTMLElement;
-      if (!el) {
-        toast.error("Could not capture page content.");
-        return;
-      }
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `Pump_Report_${date}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      toast.success("Report downloaded as JPG image.");
-    } catch {
-      toast.error("JPG export failed. Please try again.");
-    }
-  }, [date]);
-
-  const handleDownloadJpgPdf = useCallback(async () => {
-    try {
-      const { default: html2canvas } = await import("html2canvas");
-      const { jsPDF } = await import("jspdf");
-      const el = document.querySelector(".print-container") as HTMLElement;
-      if (!el) {
-        toast.error("Could not capture page content.");
-        return;
-      }
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [canvas.width / 2, canvas.height / 2],
-      });
-      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
-      pdf.save(`Pump_Report_${date}.pdf`);
-      toast.success("Report downloaded as JPG-PDF.");
-    } catch {
-      toast.error("JPG PDF export failed. Please try again.");
-    }
-  }, [date]);
-
   // ─── Save handler ────────────────────────────────────
   const handleSave = useCallback(async () => {
+    if (!actor) {
+      toast.error(
+        "Still connecting to server, please wait a moment and try again.",
+      );
+      return;
+    }
+
     // Serialize denom counts for storage in notes field
     const denomData: Record<number, string> = {};
     for (const k of [...NOTES, ...COINS]) {
@@ -1612,10 +1566,13 @@ export default function App() {
     try {
       await saveReportMutation.mutateAsync({ date, report });
       toast.success("Report saved successfully!");
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Save error:", msg);
       toast.error("Failed to save report. Please try again.");
     }
   }, [
+    actor,
     date,
     hsdPrice,
     hsdTesting,
@@ -2141,10 +2098,12 @@ export default function App() {
                 variant="ghost"
                 size="sm"
                 onClick={handleSave}
-                disabled={saveReportMutation.isPending}
+                disabled={
+                  saveReportMutation.isPending || isActorLoading || !actor
+                }
                 className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
               >
-                {saveReportMutation.isPending ? (
+                {saveReportMutation.isPending || isActorLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Save className="w-4 h-4" />
@@ -2164,30 +2123,22 @@ export default function App() {
                     <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-[100] w-52">
+                <DropdownMenuContent
+                  align="end"
+                  className="z-[100] w-52 no-print"
+                >
                   <DropdownMenuItem
-                    data-ocid="header.download.jpg.button"
-                    onClick={handleDownloadJpg}
+                    data-ocid="header.download.pdf.button"
+                    onClick={() => {
+                      setTimeout(() => window.print(), 150);
+                    }}
                     className="gap-2 cursor-pointer"
                   >
-                    <FileImage className="w-4 h-4 text-orange-500 shrink-0" />
+                    <Printer className="w-4 h-4 text-red-600 shrink-0" />
                     <div>
-                      <div className="font-medium text-sm">JPG</div>
+                      <div className="font-medium text-sm">PDF</div>
                       <div className="text-xs text-muted-foreground">
-                        Screenshot image
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    data-ocid="header.download.jpg-pdf.button"
-                    onClick={handleDownloadJpgPdf}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <FileImage className="w-4 h-4 text-rose-600 shrink-0" />
-                    <div>
-                      <div className="font-medium text-sm">JPG PDF</div>
-                      <div className="text-xs text-muted-foreground">
-                        Image exported as PDF
+                        Save as PDF
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -2202,19 +2153,6 @@ export default function App() {
                       <div className="font-medium text-sm">Word (.doc)</div>
                       <div className="text-xs text-muted-foreground">
                         Formatted document
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    data-ocid="header.download.pdf.button"
-                    onClick={() => window.print()}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4 text-red-600 shrink-0" />
-                    <div>
-                      <div className="font-medium text-sm">PDF</div>
-                      <div className="text-xs text-muted-foreground">
-                        Save as PDF via print
                       </div>
                     </div>
                   </DropdownMenuItem>

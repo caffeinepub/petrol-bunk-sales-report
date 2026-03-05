@@ -1,6 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DailyReport } from "../backend.d";
+import type { DailyReport, Option } from "../backend.d";
 import { useActor } from "./useActor";
+
+function unwrapOption<T>(opt: Option<T> | T | null | undefined): T | null {
+  if (opt === null || opt === undefined) return null;
+  // ICP SDK wraps Motoko ?T as { __kind__: "Some", value: T } | { __kind__: "None" }
+  if (
+    typeof opt === "object" &&
+    opt !== null &&
+    "__kind__" in (opt as object)
+  ) {
+    const o = opt as { __kind__: string; value?: T };
+    if (o.__kind__ === "Some" && o.value !== undefined) return o.value;
+    if (o.__kind__ === "None") return null;
+  }
+  // Already unwrapped (direct value)
+  return opt as T;
+}
 
 export function useGetReport(date: string) {
   const { actor, isFetching } = useActor();
@@ -9,7 +25,10 @@ export function useGetReport(date: string) {
     queryFn: async () => {
       if (!actor) return null;
       try {
-        return await actor.getReport(date);
+        const result = await actor.getReport(date);
+        return unwrapOption<DailyReport>(
+          result as unknown as Option<DailyReport>,
+        );
       } catch {
         return null;
       }
