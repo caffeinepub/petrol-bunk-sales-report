@@ -134,6 +134,7 @@ function emptyExpenseTabs(): ExpensesTabState[] {
     { tabName: "QR Payments", rows: [] },
     { tabName: "Card Payments", rows: [] },
     { tabName: "Expenses", rows: [] },
+    { tabName: "KATHA", rows: [] },
   ];
 }
 
@@ -644,6 +645,11 @@ const EXPENSE_TAB_COLORS = [
     border: "border-emerald-200",
     header: "bg-emerald-50",
     badge: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    border: "border-orange-200",
+    header: "bg-orange-50",
+    badge: "bg-orange-100 text-orange-700",
   },
 ];
 
@@ -1317,6 +1323,7 @@ export default function App() {
         "QR Payments",
         "Card Payments",
         "Expenses",
+        "KATHA",
       ];
       if (savedReport.deductionsTabs && savedReport.deductionsTabs.length > 0) {
         const mapped: ExpensesTabState[] = FIXED_TABS.map((fixedName) => {
