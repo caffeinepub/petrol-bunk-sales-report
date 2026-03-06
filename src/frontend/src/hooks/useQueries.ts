@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DailyReport, Option } from "../backend.d";
+import type { DailyReport, Option, ReportEntry } from "../backend.d";
 import { useActor } from "./useActor";
 
 function unwrapOption<T>(opt: Option<T> | T | null | undefined): T | null {
@@ -18,14 +18,14 @@ function unwrapOption<T>(opt: Option<T> | T | null | undefined): T | null {
   return opt as T;
 }
 
-export function useGetReport(date: string) {
+export function useGetReport(recordId: string) {
   const { actor, isFetching } = useActor();
   return useQuery<DailyReport | null>({
-    queryKey: ["report", date],
+    queryKey: ["report", recordId],
     queryFn: async () => {
       if (!actor) return null;
       try {
-        const result = await actor.getReport(date);
+        const result = await actor.getReport(recordId);
         return unwrapOption<DailyReport>(
           result as unknown as Option<DailyReport>,
         );
@@ -33,7 +33,7 @@ export function useGetReport(date: string) {
         return null;
       }
     },
-    enabled: !!actor && !isFetching && !!date,
+    enabled: !!actor && !isFetching && !!recordId,
     retry: false,
   });
 }
@@ -50,17 +50,33 @@ export function useListReportDates() {
   });
 }
 
+export function useListReportsByDevice(deviceId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<ReportEntry[]>({
+    queryKey: ["reportsByDevice", deviceId],
+    queryFn: async () => {
+      if (!actor || !deviceId) return [];
+      try {
+        return await actor.listReportsByDevice(deviceId);
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!actor && !isFetching && !!deviceId,
+  });
+}
+
 export function useDeleteReport() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (date: string) => {
+    mutationFn: async (recordId: string) => {
       if (!actor) throw new Error("Actor not available");
-      await actor.deleteReport(date);
+      await actor.deleteReport(recordId);
     },
-    onSuccess: (_, date) => {
-      queryClient.invalidateQueries({ queryKey: ["report", date] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reportsByDevice"] });
       queryClient.invalidateQueries({ queryKey: ["reportDates"] });
     },
   });
@@ -72,17 +88,20 @@ export function useSaveReport() {
 
   return useMutation({
     mutationFn: async ({
-      date,
+      recordId,
       report,
     }: {
-      date: string;
+      recordId: string;
       report: DailyReport;
     }) => {
       if (!actor) throw new Error("Actor not available");
-      await actor.saveReport(date, report);
+      await actor.saveReport(recordId, report);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["report", variables.date] });
+      queryClient.invalidateQueries({
+        queryKey: ["report", variables.recordId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["reportsByDevice"] });
       queryClient.invalidateQueries({ queryKey: ["reportDates"] });
     },
   });

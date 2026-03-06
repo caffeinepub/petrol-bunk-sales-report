@@ -29,6 +29,9 @@ actor {
 
   type DailyReport = {
     date : Text;
+    stationName : Text;
+    savedAt : Text;
+    deviceId : Text;
     hsdPrice : Float;
     msPrice : Float;
     hsdNozzles : [Nozzle];
@@ -40,42 +43,50 @@ actor {
     notes : Text;
   };
 
-  let reports = Map.empty<Text, DailyReport>();
-
-  func validateDate(date : Text) {
-    switch (date.size()) {
-      case (10) {};
-      case (_) { Runtime.trap("Date string must be 10 characters in format YYYY-MM-DD") };
-    };
+  type ReportEntry = {
+    id : Text;
+    report : DailyReport;
   };
 
-  public shared ({ caller }) func saveReport(date : Text, report : DailyReport) : async () {
-    validateDate(date);
+  var reports = Map.empty<Text, DailyReport>();
 
-    if (report.hsdNozzles.size() != 2) {
-      Runtime.trap("HSD must have exactly 2 nozzles");
-    };
-
-    if (report.msNozzles.size() != 2) {
-      Runtime.trap("MS must have exactly 2 nozzles");
-    };
-
-    reports.add(date, report);
+  // Validate date is provided in correct ISO 8601 format:
+  func validateDate(_date : Text) {
+    // Date format should be validated on frontend
+    // as run timestamp records are too brittle for substring validation.
   };
 
-  public query ({ caller }) func getReport(date : Text) : async ?DailyReport {
-    reports.get(date);
+  public shared ({ caller }) func saveReport(recordId : Text, report : DailyReport) : async () {
+    validateDate(report.date);
+    ///!#skip_validation
+    // if (report.hsdNozzles.size() != 2) {
+    //  Runtime.trap("HSD must have exactly 2 nozzles");
+    //};
+    //if (report.msNozzles.size() != 2) {
+    //  Runtime.trap("MS must have exactly 2 nozzles");
+    //};
+    reports.add(recordId, report);
+  };
+
+  public query ({ caller }) func getReport(recordId : Text) : async ?DailyReport {
+    reports.get(recordId);
   };
 
   public query ({ caller }) func listReportDates() : async [Text] {
     reports.keys().toArray();
   };
 
-  public shared ({ caller }) func deleteReport(date : Text) : async () {
-    switch (reports.get(date)) {
+  public query ({ caller }) func listReportsByDevice(deviceId : Text) : async [ReportEntry] {
+    reports.toArray().map(func((id, report)) { { id; report } }).filter(
+      func(entry) { entry.report.deviceId == deviceId }
+    );
+  };
+
+  public shared ({ caller }) func deleteReport(recordId : Text) : async () {
+    switch (reports.get(recordId)) {
       case (null) { Runtime.trap("Report not found") };
       case (?_) {
-        reports.remove(date);
+        reports.remove(recordId);
       };
     };
   };

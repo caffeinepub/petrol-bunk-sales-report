@@ -30,19 +30,21 @@ function downloadBlob(blob: Blob, filename: string) {
     URL.revokeObjectURL(url);
   }, 100);
 }
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  Clock,
   Coins,
   Download,
   FileDown,
-  FileImage,
   FileSpreadsheet,
   FileText,
   Fuel,
   History,
   Loader2,
+  MapPin,
   Package,
   Plus,
   Printer,
@@ -57,12 +59,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { DailyReport } from "./backend.d";
 import { useActor } from "./hooks/useActor";
-import {
-  useDeleteReport,
-  useGetReport,
-  useListReportDates,
-  useSaveReport,
-} from "./hooks/useQueries";
+import { useDeleteReport, useListReportsByDevice } from "./hooks/useQueries";
+
+// ─── Device ID ────────────────────────────────────────────
+function getOrCreateDeviceId(): string {
+  const KEY = "dsr_device_id";
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = `dev_${Math.random().toString(36).slice(2, 18)}${Date.now().toString(36)}`;
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+function generateRecordId(date: string): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 7);
+  return `${date}_${ts}_${rand}`;
+}
 
 // ─── Types ────────────────────────────────────────────────
 interface NozzleState {
@@ -1222,8 +1236,17 @@ function CashDenominationCalculator({
 
 // ─── Main App ─────────────────────────────────────────────
 export default function App() {
+  // ─ Device identity (local to this browser)
+  const [deviceId] = useState(() => getOrCreateDeviceId());
+
   // ─ Date state
   const [date, setDate] = useState(todayDate());
+
+  // ─ Station name
+  const [stationName, setStationName] = useState("");
+
+  // ─ Operator name
+  const [operatorName, setOperatorName] = useState("");
 
   // ─ HSD state (2 nozzles)
   const [hsdNozzles, setHsdNozzles] = useState<NozzleState[]>(emptyNozzles());
@@ -1238,7 +1261,7 @@ export default function App() {
   // ─ Engine oil
   const [engineOilRows, setEngineOilRows] = useState<EngineOilRowState[]>([]);
 
-  // ─ Expenses/deductions (4 fixed tabs)
+  // ─ Expenses/deductions (6 fixed tabs)
   const [expensesTabs, setExpensesTabs] = useState<ExpensesTabState[]>(
     emptyExpenseTabs(),
   );
@@ -1250,133 +1273,17 @@ export default function App() {
 
   // ─ UI
   const [showHistory, setShowHistory] = useState(false);
-  // Track whether the current date was selected from History (load data) or typed/default (stay blank)
-  const [loadDataForDate, setLoadDataForDate] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ─ Track which history record is currently being edited (so Save overwrites it)
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   // ─── Backend hooks ────────────────────────────────────
   const { actor, isFetching: isActorLoading } = useActor();
-  const { data: savedReport, isLoading: isLoadingReport } = useGetReport(date);
-  const saveReportMutation = useSaveReport();
+  const queryClient = useQueryClient();
   const deleteReportMutation = useDeleteReport();
-  const { data: reportDates, isLoading: isLoadingDates } = useListReportDates();
-
-  // ─── Load saved report when date/data changes ─────────
-  useEffect(() => {
-    // Only populate fields when explicitly loading from history
-    if (savedReport && loadDataForDate === date) {
-      // HSD
-      const hNozzles = emptyNozzles();
-      for (let i = 0; i < Math.min(savedReport.hsdNozzles.length, 2); i++) {
-        hNozzles[i] = {
-          open:
-            savedReport.hsdNozzles[i].openReading > 0
-              ? savedReport.hsdNozzles[i].openReading.toString()
-              : "",
-          close:
-            savedReport.hsdNozzles[i].closeReading > 0
-              ? savedReport.hsdNozzles[i].closeReading.toString()
-              : "",
-        };
-      }
-      setHsdNozzles(hNozzles);
-      setHsdPrice(
-        savedReport.hsdPrice > 0 ? savedReport.hsdPrice.toString() : "",
-      );
-      setHsdTesting(
-        savedReport.hsdTesting > 0 ? savedReport.hsdTesting.toString() : "",
-      );
-
-      // MS
-      const mNozzles = emptyNozzles();
-      for (let i = 0; i < Math.min(savedReport.msNozzles.length, 2); i++) {
-        mNozzles[i] = {
-          open:
-            savedReport.msNozzles[i].openReading > 0
-              ? savedReport.msNozzles[i].openReading.toString()
-              : "",
-          close:
-            savedReport.msNozzles[i].closeReading > 0
-              ? savedReport.msNozzles[i].closeReading.toString()
-              : "",
-        };
-      }
-      setMsNozzles(mNozzles);
-      setMsPrice(savedReport.msPrice > 0 ? savedReport.msPrice.toString() : "");
-      setMsTesting(
-        savedReport.msTesting > 0 ? savedReport.msTesting.toString() : "",
-      );
-
-      // Engine oil
-      setEngineOilRows(
-        savedReport.engineOilRows.map((r) => ({
-          id: uid(),
-          name: r.name,
-          quantity: r.quantity > 0 ? r.quantity.toString() : "",
-          price: r.price > 0 ? r.price.toString() : "",
-        })),
-      );
-
-      // Expenses tabs (4 fixed)
-      const FIXED_TABS = [
-        "Cash Received",
-        "Daily Pump Test",
-        "QR Payments",
-        "Card Payments",
-        "Expenses",
-        "KATHA",
-      ];
-      if (savedReport.deductionsTabs && savedReport.deductionsTabs.length > 0) {
-        const mapped: ExpensesTabState[] = FIXED_TABS.map((fixedName) => {
-          const saved = savedReport.deductionsTabs.find(
-            (t) => t.tabName === fixedName,
-          );
-          return {
-            tabName: fixedName,
-            rows: saved
-              ? saved.rows.map((r) => ({
-                  id: uid(),
-                  label: r.expenseLabel,
-                  amount: r.amount > 0 ? r.amount.toString() : "",
-                }))
-              : [],
-          };
-        });
-        setExpensesTabs(mapped);
-      } else {
-        setExpensesTabs(emptyExpenseTabs());
-      }
-
-      // Denomination calculator — stored in notes as JSON
-      try {
-        const extra = JSON.parse(savedReport.notes || "{}");
-        if (extra.denoms) {
-          const loaded = emptyDenoms();
-          for (const key of Object.keys(extra.denoms)) {
-            const k = Number(key);
-            if (loaded[k] !== undefined) {
-              loaded[k] = { count: extra.denoms[key] };
-            }
-          }
-          setDenoms(loaded);
-        } else {
-          setDenoms(emptyDenoms());
-        }
-      } catch {
-        setDenoms(emptyDenoms());
-      }
-    } else if (!isLoadingReport) {
-      // Either no saved data, or date was not selected from history — always show blank fields
-      setHsdNozzles(emptyNozzles());
-      setMsNozzles(emptyNozzles());
-      setHsdPrice("");
-      setMsPrice("");
-      setHsdTesting("");
-      setMsTesting("");
-      setEngineOilRows([]);
-      setExpensesTabs(emptyExpenseTabs());
-      setDenoms(emptyDenoms());
-    }
-  }, [savedReport, isLoadingReport, loadDataForDate, date]);
+  const { data: reportEntries, isLoading: isLoadingEntries } =
+    useListReportsByDevice(deviceId);
 
   // ─── Calculations ──────────────────────────────────────
   const hsdVolumes = hsdNozzles.map((n) => toNum(n.close) - toNum(n.open));
@@ -1499,41 +1406,151 @@ export default function App() {
     }));
   }, []);
 
+  // ─── Clear all fields ────────────────────────────────
+  const clearAllFields = useCallback(() => {
+    setStationName("");
+    setOperatorName("");
+    setHsdNozzles(emptyNozzles());
+    setMsNozzles(emptyNozzles());
+    setHsdPrice("");
+    setMsPrice("");
+    setHsdTesting("");
+    setMsTesting("");
+    setEngineOilRows([]);
+    setExpensesTabs(emptyExpenseTabs());
+    setDenoms(emptyDenoms());
+  }, []);
+
   // ─── Delete report handler ───────────────────────────
   const handleDeleteReport = useCallback(
-    async (targetDate: string, e: React.MouseEvent) => {
+    async (recordId: string, e: React.MouseEvent) => {
       e.stopPropagation();
       try {
-        await deleteReportMutation.mutateAsync(targetDate);
-        toast.success(`Report for ${targetDate} deleted.`);
-        // If we deleted the currently loaded date, reset fields
-        if (targetDate === date) {
-          setLoadDataForDate(null);
-          setHsdNozzles(emptyNozzles());
-          setMsNozzles(emptyNozzles());
-          setHsdPrice("");
-          setMsPrice("");
-          setHsdTesting("");
-          setMsTesting("");
-          setEngineOilRows([]);
-          setExpensesTabs(emptyExpenseTabs());
-          setDenoms(emptyDenoms());
-        }
+        await deleteReportMutation.mutateAsync(recordId);
+        toast.success("Report deleted.");
       } catch {
         toast.error("Failed to delete report.");
       }
     },
-    [deleteReportMutation, date],
+    [deleteReportMutation],
+  );
+
+  // ─── Load from history ───────────────────────────────
+  const handleLoadFromHistory = useCallback(
+    (entry: { id: string; report: DailyReport }) => {
+      const r = entry.report;
+
+      // Set date
+      setDate(r.date);
+
+      // Set station name
+      setStationName(r.stationName || "");
+
+      // HSD
+      const hNozzles = emptyNozzles();
+      for (let i = 0; i < Math.min(r.hsdNozzles.length, 2); i++) {
+        hNozzles[i] = {
+          open:
+            r.hsdNozzles[i].openReading > 0
+              ? r.hsdNozzles[i].openReading.toString()
+              : "",
+          close:
+            r.hsdNozzles[i].closeReading > 0
+              ? r.hsdNozzles[i].closeReading.toString()
+              : "",
+        };
+      }
+      setHsdNozzles(hNozzles);
+      setHsdPrice(r.hsdPrice > 0 ? r.hsdPrice.toString() : "");
+      setHsdTesting(r.hsdTesting > 0 ? r.hsdTesting.toString() : "");
+
+      // MS
+      const mNozzles = emptyNozzles();
+      for (let i = 0; i < Math.min(r.msNozzles.length, 2); i++) {
+        mNozzles[i] = {
+          open:
+            r.msNozzles[i].openReading > 0
+              ? r.msNozzles[i].openReading.toString()
+              : "",
+          close:
+            r.msNozzles[i].closeReading > 0
+              ? r.msNozzles[i].closeReading.toString()
+              : "",
+        };
+      }
+      setMsNozzles(mNozzles);
+      setMsPrice(r.msPrice > 0 ? r.msPrice.toString() : "");
+      setMsTesting(r.msTesting > 0 ? r.msTesting.toString() : "");
+
+      // Engine oil
+      setEngineOilRows(
+        r.engineOilRows.map((eo) => ({
+          id: uid(),
+          name: eo.name,
+          quantity: eo.quantity > 0 ? eo.quantity.toString() : "",
+          price: eo.price > 0 ? eo.price.toString() : "",
+        })),
+      );
+
+      // Expenses tabs
+      const FIXED_TABS = [
+        "Cash Received",
+        "Daily Pump Test",
+        "QR Payments",
+        "Card Payments",
+        "Expenses",
+        "KATHA",
+      ];
+      if (r.deductionsTabs && r.deductionsTabs.length > 0) {
+        const mapped: ExpensesTabState[] = FIXED_TABS.map((fixedName) => {
+          const saved = r.deductionsTabs.find((t) => t.tabName === fixedName);
+          return {
+            tabName: fixedName,
+            rows: saved
+              ? saved.rows.map((row) => ({
+                  id: uid(),
+                  label: row.expenseLabel,
+                  amount: row.amount > 0 ? row.amount.toString() : "",
+                }))
+              : [],
+          };
+        });
+        setExpensesTabs(mapped);
+      } else {
+        setExpensesTabs(emptyExpenseTabs());
+      }
+
+      // Denomination calculator + operator name — stored in notes as JSON
+      try {
+        const extra = JSON.parse(r.notes || "{}");
+        if (extra.denoms) {
+          const loaded = emptyDenoms();
+          for (const key of Object.keys(extra.denoms)) {
+            const k = Number(key);
+            if (loaded[k] !== undefined) {
+              loaded[k] = { count: extra.denoms[key] };
+            }
+          }
+          setDenoms(loaded);
+        } else {
+          setDenoms(emptyDenoms());
+        }
+        setOperatorName(extra.operatorName || "");
+      } catch {
+        setDenoms(emptyDenoms());
+        setOperatorName("");
+      }
+
+      // Remember which record we loaded so Save can overwrite it
+      setEditingRecordId(entry.id);
+      setShowHistory(false);
+    },
+    [],
   );
 
   // ─── Save handler ────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!actor) {
-      toast.error(
-        "Still connecting to server, please wait a moment and try again.",
-      );
-      return;
-    }
+    setIsSaving(true);
 
     // Serialize denom counts for storage in notes field
     const denomData: Record<number, string> = {};
@@ -1541,9 +1558,16 @@ export default function App() {
       denomData[k] = denoms[k]?.count ?? "";
     }
 
+    // If we loaded a report from history, overwrite that same record.
+    // Otherwise generate a new record ID (allows multiple saves per date).
+    const recordId = editingRecordId ?? generateRecordId(date);
+
     const report: DailyReport = {
       date,
-      notes: JSON.stringify({ denoms: denomData }),
+      stationName,
+      deviceId,
+      savedAt: new Date().toISOString(),
+      notes: JSON.stringify({ denoms: denomData, operatorName }),
       hsdPrice: toNum(hsdPrice),
       hsdTesting: toNum(hsdTesting),
       hsdNozzles: hsdNozzles.map((n) => ({
@@ -1571,16 +1595,37 @@ export default function App() {
     };
 
     try {
-      await saveReportMutation.mutateAsync({ date, report });
-      toast.success("Report saved successfully!");
+      if (!actor) {
+        toast.error(
+          "Still connecting to server. Please wait a moment and try again.",
+        );
+        return;
+      }
+      await actor.saveReport(recordId, report);
+      // Invalidate query cache so History refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["reportsByDevice"] });
+      queryClient.invalidateQueries({ queryKey: ["reportDates"] });
+      // If we were editing an existing record, keep tracking it so subsequent saves still overwrite
+      // (editingRecordId stays set until user manually changes date or clears)
+      toast.success(
+        editingRecordId
+          ? "Report updated in history!"
+          : "Report saved successfully!",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Save error:", msg);
-      toast.error("Failed to save report. Please try again.");
+      toast.error(`Failed to save report: ${msg.slice(0, 150)}`);
+    } finally {
+      setIsSaving(false);
     }
   }, [
     actor,
+    queryClient,
     date,
+    stationName,
+    operatorName,
+    deviceId,
     hsdPrice,
     hsdTesting,
     hsdNozzles,
@@ -1590,15 +1635,8 @@ export default function App() {
     engineOilRows,
     expensesTabs,
     denoms,
-    saveReportMutation,
+    editingRecordId,
   ]);
-
-  // ─── History handler ─────────────────────────────────
-  const handleLoadFromHistory = useCallback((historyDate: string) => {
-    setLoadDataForDate(historyDate);
-    setDate(historyDate);
-    setShowHistory(false);
-  }, []);
 
   // ─── Word document generation (RTF format, no lib needed) ──
   const handleDownload = useCallback(() => {
@@ -1626,6 +1664,8 @@ export default function App() {
     rtf += "\\f0\\fs22\n";
 
     rtf += h1("PUMP DAILY SALES REPORT");
+    if (stationName) rtf += para(`Station: ${stationName}`);
+    if (operatorName) rtf += para(`Operator: ${operatorName}`);
     rtf += para(`Date: ${date}`);
     rtf += para("");
 
@@ -1730,6 +1770,8 @@ export default function App() {
     toast.success("Report downloaded as Word document.");
   }, [
     date,
+    stationName,
+    operatorName,
     hsdPrice,
     hsdTesting,
     hsdNozzles,
@@ -1766,6 +1808,8 @@ export default function App() {
 
     lines.push("PUMP DAILY SALES REPORT");
     lines.push(sep);
+    if (stationName) lines.push(`Station: ${stationName}`);
+    if (operatorName) lines.push(`Operator: ${operatorName}`);
     lines.push(`Date: ${date}`);
     lines.push("");
 
@@ -1870,6 +1914,8 @@ export default function App() {
     toast.success("Report downloaded as Notes (.txt)");
   }, [
     date,
+    stationName,
+    operatorName,
     hsdPrice,
     hsdTesting,
     hsdNozzles,
@@ -1909,6 +1955,10 @@ export default function App() {
     const diffCsv = totalCashCsv - netCashSales;
 
     let csv = "Section,Label,Value\n";
+
+    if (stationName) csv += row("Report", "Station", stationName);
+    if (operatorName) csv += row("Report", "Operator", operatorName);
+    csv += row("Report", "Date", date);
 
     // HSD
     csv += row("HSD", "Price per Litre", `Rs.${hsdPrice || "0"}`);
@@ -2022,6 +2072,8 @@ export default function App() {
     toast.success("Report downloaded as Excel (.csv)");
   }, [
     date,
+    stationName,
+    operatorName,
     hsdPrice,
     hsdTesting,
     hsdNozzles,
@@ -2080,8 +2132,11 @@ export default function App() {
                   type="date"
                   value={date}
                   onChange={(e) => {
-                    setLoadDataForDate(null);
                     setDate(e.target.value);
+                    // Clear all fields when date is manually changed
+                    clearAllFields();
+                    // No longer editing a historical record
+                    setEditingRecordId(null);
                   }}
                   className="bg-transparent text-white text-sm font-mono focus:outline-none w-[120px] sm:w-[130px]"
                 />
@@ -2105,12 +2160,10 @@ export default function App() {
                 variant="ghost"
                 size="sm"
                 onClick={handleSave}
-                disabled={
-                  saveReportMutation.isPending || isActorLoading || !actor
-                }
+                disabled={isSaving || (!actor && isActorLoading)}
                 className="text-white/90 hover:bg-white/20 hover:text-white gap-1.5 flex flex-1 sm:flex-none justify-center"
               >
-                {saveReportMutation.isPending || isActorLoading ? (
+                {isSaving || (!actor && isActorLoading) ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Save className="w-4 h-4" />
@@ -2209,16 +2262,58 @@ export default function App() {
 
       {/* ── Main Content ──────────────────────────────── */}
       <main className="max-w-[900px] mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6 print-container">
-        {/* Loading state */}
-        {isLoadingReport && (
-          <div
-            data-ocid="app.loading_state"
-            className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm"
-          >
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading report for {date}…
+        {/* ── Station / Bunk Name ─────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="rounded-xl overflow-hidden border-2 border-sky-200 bg-white shadow-sm"
+        >
+          <div className="px-5 py-3 bg-sky-700 flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20">
+              <MapPin className="w-4 h-4 text-white" />
+            </div>
+            <div className="text-white font-bold text-sm tracking-wide uppercase">
+              Station / Bunk Name
+            </div>
           </div>
-        )}
+          <div className="p-4 sm:p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <Label
+                htmlFor="station-name-input"
+                className="text-xs font-bold uppercase tracking-wider text-foreground/60 shrink-0 sm:w-40"
+              >
+                Station / Bunk Name
+              </Label>
+              <Input
+                id="station-name-input"
+                data-ocid="station-name.input"
+                type="text"
+                value={stationName}
+                onChange={(e) => setStationName(e.target.value)}
+                placeholder="Enter station or bunk name"
+                className="flex-1 text-sm font-medium dsr-touch-input"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <Label
+                htmlFor="operator-name-input"
+                className="text-xs font-bold uppercase tracking-wider text-foreground/60 shrink-0 sm:w-40"
+              >
+                Operator Name
+              </Label>
+              <Input
+                id="operator-name-input"
+                data-ocid="operator-name.input"
+                type="text"
+                value={operatorName}
+                onChange={(e) => setOperatorName(e.target.value)}
+                placeholder="Enter operator name"
+                className="flex-1 text-sm font-medium dsr-touch-input"
+              />
+            </div>
+          </div>
+        </motion.div>
 
         {/* ── HSD Card (first/top) ─────────────────────── */}
         <NozzleSection
@@ -2294,7 +2389,7 @@ export default function App() {
       <Sheet open={showHistory} onOpenChange={setShowHistory}>
         <SheetContent
           data-ocid="history.sheet"
-          className="w-[340px] sm:w-[420px] flex flex-col"
+          className="w-[340px] sm:w-[440px] flex flex-col"
           side="right"
         >
           <SheetHeader className="pb-4 border-b border-border">
@@ -2305,12 +2400,13 @@ export default function App() {
               Report History
             </SheetTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Browse and load past saved reports by date
+              Saved reports for this device only. Click any entry to edit &amp;
+              re-save.
             </p>
           </SheetHeader>
 
           <div className="mt-4 flex-1 overflow-hidden">
-            {isLoadingDates ? (
+            {isLoadingEntries ? (
               <div
                 data-ocid="history.loading_state"
                 className="flex items-center gap-2 py-8 text-muted-foreground text-sm justify-center"
@@ -2318,7 +2414,7 @@ export default function App() {
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading history…
               </div>
-            ) : !reportDates || reportDates.length === 0 ? (
+            ) : !reportEntries || reportEntries.length === 0 ? (
               <div
                 data-ocid="history.empty_state"
                 className="text-center py-12 text-muted-foreground"
@@ -2333,12 +2429,23 @@ export default function App() {
               <ScrollArea className="h-[calc(100vh-160px)]">
                 <div className="space-y-2 pr-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
-                    {reportDates.length} saved report
-                    {reportDates.length !== 1 ? "s" : ""}
+                    {reportEntries.length} saved report
+                    {reportEntries.length !== 1 ? "s" : ""}
                   </p>
-                  {[...reportDates]
-                    .sort((a, b) => b.localeCompare(a))
-                    .map((d, idx) => {
+                  {[...reportEntries]
+                    .sort((a, b) =>
+                      b.report.savedAt.localeCompare(a.report.savedAt),
+                    )
+                    .map((entry, idx) => {
+                      const d = entry.report.date;
+                      const savedAt = entry.report.savedAt;
+                      const timeStr = savedAt
+                        ? new Date(savedAt).toLocaleTimeString("en-IN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                        : "";
                       const dateObj = new Date(`${d}T00:00:00`);
                       const formattedDate = dateObj.toLocaleDateString(
                         "en-IN",
@@ -2349,71 +2456,52 @@ export default function App() {
                           year: "numeric",
                         },
                       );
-                      const isActive = d === date;
+                      const stName = entry.report.stationName;
                       return (
                         <button
-                          key={d}
+                          key={entry.id}
                           type="button"
                           data-ocid={`history.item.${idx + 1}`}
-                          onClick={() => handleLoadFromHistory(d)}
-                          className={`group w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-left transition-all duration-150 border ${
-                            isActive
-                              ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                              : "bg-card border-border hover:border-primary/40 hover:bg-accent text-foreground"
-                          }`}
+                          onClick={() => handleLoadFromHistory(entry)}
+                          className="group w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-left transition-all duration-150 border bg-card border-border hover:border-primary/40 hover:bg-accent text-foreground"
                         >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${
-                                isActive
-                                  ? "bg-white/20"
-                                  : "bg-primary/10 group-hover:bg-primary/15"
-                              }`}
-                            >
-                              <CalendarDays
-                                className={`w-4 h-4 ${isActive ? "text-white" : "text-primary"}`}
-                              />
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-primary/10 group-hover:bg-primary/15">
+                              <CalendarDays className="w-4 h-4 text-primary" />
                             </div>
-                            <div>
-                              <div
-                                className={`text-sm font-bold leading-tight ${isActive ? "text-white" : "text-foreground"}`}
-                              >
+                            <div className="min-w-0">
+                              {stName && (
+                                <div className="text-xs font-bold text-primary truncate flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{stName}</span>
+                                </div>
+                              )}
+                              <div className="text-sm font-bold leading-tight text-foreground">
                                 {formattedDate}
                               </div>
-                              <div
-                                className={`text-xs font-mono mt-0.5 ${isActive ? "text-white/60" : "text-muted-foreground"}`}
-                              >
-                                {d}
-                              </div>
+                              {timeStr && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3 shrink-0" />
+                                  {timeStr}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isActive ? (
-                              <span className="text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
-                                Current
-                              </span>
-                            ) : (
-                              <span className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 px-2 py-0.5 rounded-full">
-                                View
-                              </span>
-                            )}
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 px-2 py-0.5 rounded-full">
+                              Edit
+                            </span>
                             <button
                               type="button"
                               data-ocid={`history.delete_button.${idx + 1}`}
-                              onClick={(e) => handleDeleteReport(d, e)}
+                              onClick={(e) => handleDeleteReport(entry.id, e)}
                               disabled={deleteReportMutation.isPending}
-                              className={`flex items-center justify-center w-7 h-7 rounded-md transition-all opacity-0 group-hover:opacity-100 ${
-                                isActive
-                                  ? "hover:bg-white/20 text-white/70 hover:text-white"
-                                  : "hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                              }`}
+                              className="flex items-center justify-center w-7 h-7 rounded-md transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                               title="Delete report"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <ChevronRight
-                              className={`w-4 h-4 transition-transform group-hover:translate-x-0.5 ${isActive ? "text-white/60" : "text-muted-foreground"}`}
-                            />
+                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-muted-foreground" />
                           </div>
                         </button>
                       );

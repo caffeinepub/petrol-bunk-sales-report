@@ -32,16 +32,28 @@ export const DailyReport = IDL.Record({
   'hsdPrice' : IDL.Float64,
   'date' : IDL.Text,
   'notes' : IDL.Text,
+  'deviceId' : IDL.Text,
+  'savedAt' : IDL.Text,
   'hsdTesting' : IDL.Float64,
   'hsdNozzles' : IDL.Vec(Nozzle),
+  'stationName' : IDL.Text,
   'engineOilRows' : IDL.Vec(EngineOilRow),
   'deductionsTabs' : IDL.Vec(DeductionsTab),
+});
+export const ReportEntry = IDL.Record({
+  'id' : IDL.Text,
+  'report' : DailyReport,
 });
 
 export const idlService = IDL.Service({
   'deleteReport' : IDL.Func([IDL.Text], [], []),
   'getReport' : IDL.Func([IDL.Text], [IDL.Opt(DailyReport)], ['query']),
   'listReportDates' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+  'listReportsByDevice' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(ReportEntry)],
+      ['query'],
+    ),
   'saveReport' : IDL.Func([IDL.Text, DailyReport], [], []),
 });
 
@@ -72,16 +84,25 @@ export const idlFactory = ({ IDL }) => {
     'hsdPrice' : IDL.Float64,
     'date' : IDL.Text,
     'notes' : IDL.Text,
+    'deviceId' : IDL.Text,
+    'savedAt' : IDL.Text,
     'hsdTesting' : IDL.Float64,
     'hsdNozzles' : IDL.Vec(Nozzle),
+    'stationName' : IDL.Text,
     'engineOilRows' : IDL.Vec(EngineOilRow),
     'deductionsTabs' : IDL.Vec(DeductionsTab),
   });
+  const ReportEntry = IDL.Record({ 'id' : IDL.Text, 'report' : DailyReport });
   
   return IDL.Service({
     'deleteReport' : IDL.Func([IDL.Text], [], []),
     'getReport' : IDL.Func([IDL.Text], [IDL.Opt(DailyReport)], ['query']),
     'listReportDates' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'listReportsByDevice' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(ReportEntry)],
+        ['query'],
+      ),
     'saveReport' : IDL.Func([IDL.Text, DailyReport], [], []),
   });
 };

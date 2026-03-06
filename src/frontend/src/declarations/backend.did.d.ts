@@ -17,8 +17,11 @@ export interface DailyReport {
   'hsdPrice' : number,
   'date' : string,
   'notes' : string,
+  'deviceId' : string,
+  'savedAt' : string,
   'hsdTesting' : number,
   'hsdNozzles' : Array<Nozzle>,
+  'stationName' : string,
   'engineOilRows' : Array<EngineOilRow>,
   'deductionsTabs' : Array<DeductionsTab>,
 }
@@ -33,10 +36,12 @@ export interface EngineOilRow {
   'price' : number,
 }
 export interface Nozzle { 'closeReading' : number, 'openReading' : number }
+export interface ReportEntry { 'id' : string, 'report' : DailyReport }
 export interface _SERVICE {
   'deleteReport' : ActorMethod<[string], undefined>,
   'getReport' : ActorMethod<[string], [] | [DailyReport]>,
   'listReportDates' : ActorMethod<[], Array<string>>,
+  'listReportsByDevice' : ActorMethod<[string], Array<ReportEntry>>,
   'saveReport' : ActorMethod<[string, DailyReport], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
